@@ -1,0 +1,297 @@
+'use client'
+
+import { useState, useEffect, use } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ArrowLeft, Loader2, UserPlus, UserMinus, Shield } from "lucide-react"
+import Link from "next/link"
+import { toast } from "sonner"
+
+export default function ClubSettingsPage({ params }) {
+  const router = useRouter()
+  const unwrappedParams = use(params)
+  const clubId = unwrappedParams.id
+  
+  const [loading, setLoading] = useState(true)
+  const [club, setClub] = useState(null)
+  const [members, setMembers] = useState([])
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviting, setInviting] = useState(false)
+
+  useEffect(() => {
+    fetchClubData()
+  }, [clubId])
+
+  async function fetchClubData() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      router.push('/login')
+      return
+    }
+
+    // Fetch club details
+    const { data: clubData } = await supabase
+      .from('clubs')
+      .select('*')
+      .eq('id', clubId)
+      .single()
+
+    if (!clubData) {
+      router.push('/clubs')
+      return
+    }
+
+    // Check if user is admin
+    const { data: membership } = await supabase
+      .from('club_members')
+      .select('role')
+      .eq('club_id', clubId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (membership?.role !== 'admin') {
+      router.push(`/clubs/${clubId}`)
+      toast.error('Only admins can access club settings')
+      return
+    }
+
+    setIsAdmin(true)
+    setClub(clubData)
+
+    // Fetch members
+    const { data: membersData } = await supabase
+      .from('club_members')
+      .select(`
+        *,
+        profiles (
+          id,
+          full_name,
+          avatar_url
+        )
+      `)
+      .eq('club_id', clubId)
+      .order('joined_at', { ascending: false })
+
+    setMembers(membersData || [])
+    setLoading(false)
+  }
+
+  async function handleRoleChange(memberId, newRole) {
+    const supabase = createClient()
+    
+    const { error } = await supabase
+      .from('club_members')
+      .update({ role: newRole })
+      .eq('id', memberId)
+
+    if (error) {
+      toast.error('Failed to update role')
+      return
+    }
+
+    toast.success('Member role updated!')
+    fetchClubData()
+  }
+
+  async function handleRemoveMember(memberId) {
+    if (!confirm('Are you sure you want to remove this member?')) {
+      return
+    }
+
+    const supabase = createClient()
+    
+    const { error } = await supabase
+      .from('club_members')
+      .delete()
+      .eq('id', memberId)
+
+    if (error) {
+      toast.error('Failed to remove member')
+      return
+    }
+
+    toast.success('Member removed from club')
+    fetchClubData()
+  }
+
+  async function handleInvite(e) {
+    e.preventDefault()
+    setInviting(true)
+
+    const supabase = createClient()
+    
+    // Find user by email
+    const { data: userData } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', inviteEmail.trim())
+      .single()
+
+    if (!userData) {
+      toast.error('User not found. They need to sign up first!')
+      setInviting(false)
+      return
+    }
+
+    // Check if already a member
+    const { data: existing } = await supabase
+      .from('club_members')
+      .select('id')
+      .eq('club_id', clubId)
+      .eq('user_id', userData.id)
+      .single()
+
+    if (existing) {
+      toast.error('User is already a member')
+      setInviting(false)
+      return
+    }
+
+    // Add member
+    const { error } = await supabase
+      .from('club_members')
+      .insert({
+        club_id: clubId,
+        user_id: userData.id,
+        role: 'member'
+      })
+
+    if (error) {
+      toast.error('Failed to add member')
+      setInviting(false)
+      return
+    }
+
+    toast.success('Member added successfully!')
+    setInviteEmail('')
+    setInviting(false)
+    fetchClubData()
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (!isAdmin) {
+    return null
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Link href={`/clubs/${clubId}`}>
+          <Button variant="ghost" size="icon">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold">Club Settings</h1>
+          <p className="text-sm text-muted-foreground">{club?.name}</p>
+        </div>
+      </div>
+
+      {/* Invite Members */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Invite Members</CardTitle>
+          <CardDescription>
+            Add new members to your club by their email address
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleInvite} className="flex gap-2">
+            <Input
+              type="email"
+              placeholder="member@example.com"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              required
+              disabled={inviting}
+            />
+            <Button type="submit" disabled={inviting}>
+              {inviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <UserPlus className="mr-2 h-4 w-4" />
+              Invite
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Members List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Members ({members.length})</CardTitle>
+          <CardDescription>
+            Manage roles and remove members
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {members.map((member) => (
+              <div key={member.id} className="flex items-center gap-4 p-4 rounded-lg border">
+                <Avatar>
+                  <AvatarImage src={member.profiles?.avatar_url} />
+                  <AvatarFallback>
+                    {member.profiles?.full_name?.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                
+                <div className="flex-1">
+                  <p className="font-medium">{member.profiles?.full_name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Joined {new Date(member.joined_at).toLocaleDateString()}
+                  </p>
+                </div>
+
+                <Select
+                  value={member.role}
+                  onValueChange={(newRole) => handleRoleChange(member.id, newRole)}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4" />
+                        Admin
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="moderator">Moderator</SelectItem>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="viewer">Viewer</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {member.role !== 'admin' && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveMember(member.id)}
+                  >
+                    <UserMinus className="h-4 w-4 text-destructive" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
