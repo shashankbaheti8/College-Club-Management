@@ -1,39 +1,12 @@
 import { createClient } from './supabase/server'
-import { PLAN_LIMITS } from './subscription'
-
-/**
- * Get user's subscription plan (SERVER ONLY)
- */
-export async function getUserSubscription(userId) {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('user_id', userId)
-    .single()
-  
-  if (error || !data) {
-    // Return default free plan if no subscription found
-    return {
-      plan_tier: 'free',
-      limits: PLAN_LIMITS.free
-    }
-  }
-  
-  return {
-    ...data,
-    limits: PLAN_LIMITS[data.plan_tier]
-  }
-}
+import { APP_LIMITS } from './subscription'
 
 /**
  * Check if user has reached their limit for a resource (SERVER ONLY)
  */
 export async function checkLimit(userId, resourceType) {
   const supabase = await createClient()
-  const subscription = await getUserSubscription(userId)
-  const limits = subscription.limits
+  const limits = APP_LIMITS
   
   let currentCount = 0
   
@@ -41,30 +14,31 @@ export async function checkLimit(userId, resourceType) {
     case 'clubs':
       // Count clubs where user is admin
       const { count: clubCount } = await supabase
-        .from('clubs')
+        .from('club_members')
         .select('*', { count: 'exact', head: true })
-        .eq('admin_id', userId)
+        .eq('user_id', userId)
+        .eq('role', 'admin')
       
       currentCount = clubCount || 0
       return {
         allowed: currentCount < limits.clubs,
         current: currentCount,
-        limit: limits.clubs,
-        planTier: subscription.plan_tier
+        limit: limits.clubs
       }
     
     case 'activeEvents':
       // Count active events across all user's clubs
-      const { data: userClubs } = await supabase
-        .from('clubs')
-        .select('id')
-        .eq('admin_id', userId)
+      const { data: adminMemberships } = await supabase
+        .from('club_members')
+        .select('club_id')
+        .eq('user_id', userId)
+        .eq('role', 'admin') 
       
-      if (!userClubs || userClubs.length === 0) {
-        return { allowed: true, current: 0, limit: limits.activeEventsPerClub, planTier: subscription.plan_tier }
+      if (!adminMemberships || adminMemberships.length === 0) {
+        return { allowed: true, current: 0, limit: limits.activeEventsPerClub }
       }
       
-      const clubIds = userClubs.map(c => c.id)
+      const clubIds = adminMemberships.map(m => m.club_id)
       const { count: eventCount } = await supabase
         .from('events')
         .select('*', { count: 'exact', head: true })
@@ -75,12 +49,11 @@ export async function checkLimit(userId, resourceType) {
       return {
         allowed: currentCount < limits.activeEventsPerClub,
         current: currentCount,
-        limit: limits.activeEventsPerClub,
-        planTier: subscription.plan_tier
+        limit: limits.activeEventsPerClub
       }
     
     default:
-      return { allowed: true, current: 0, limit: 999, planTier: subscription.plan_tier }
+      return { allowed: true, current: 0, limit: 999 }
   }
 }
 
@@ -89,23 +62,25 @@ export async function checkLimit(userId, resourceType) {
  */
 export async function getUsageStats(userId) {
   const supabase = await createClient()
-  const subscription = await getUserSubscription(userId)
   
   // Get club count
   const { count: clubCount } = await supabase
-    .from('clubs')
+    .from('club_members')
     .select('*', { count: 'exact', head: true })
-    .eq('admin_id', userId)
+    .eq('user_id', userId)
+    .eq('role', 'admin')
   
   // Get active events count
-  const { data: userClubs } = await supabase
-    .from('clubs')
-    .select('id')
-    .eq('admin_id', userId)
+  const { data: adminMemberships } = await supabase
+    .from('club_members')
+    .select('club_id')
+    .eq('user_id', userId)
+    .eq('role', 'admin')
   
   let activeEventCount = 0
-  if (userClubs && userClubs.length > 0) {
-    const clubIds = userClubs.map(c => c.id)
+  
+  if (adminMemberships && adminMemberships.length > 0) {
+    const clubIds = adminMemberships.map(m => m.club_id)
     const { count } = await supabase
       .from('events')
       .select('*', { count: 'exact', head: true })
@@ -117,8 +92,8 @@ export async function getUsageStats(userId) {
   
   // Get total members across all clubs
   let totalMembers = 0
-  if (userClubs && userClubs.length > 0) {
-    const clubIds = userClubs.map(c => c.id)
+  if (adminMemberships && adminMemberships.length > 0) {
+    const clubIds = adminMemberships.map(m => m.club_id)
     const { count } = await supabase
       .from('club_members')
       .select('*', { count: 'exact', head: true })
@@ -130,20 +105,18 @@ export async function getUsageStats(userId) {
   return {
     clubs: {
       current: clubCount || 0,
-      limit: subscription.limits.clubs,
-      percentage: ((clubCount || 0) / subscription.limits.clubs) * 100
+      limit: APP_LIMITS.clubs,
+      percentage: ((clubCount || 0) / APP_LIMITS.clubs) * 100
     },
     activeEvents: {
       current: activeEventCount,
-      limit: subscription.limits.activeEventsPerClub,
-      percentage: ((activeEventCount) / subscription.limits.activeEventsPerClub) * 100
+      limit: APP_LIMITS.activeEventsPerClub,
+      percentage: ((activeEventCount) / APP_LIMITS.activeEventsPerClub) * 100
     },
     members: {
       current: totalMembers,
-      limit: subscription.limits.membersPerClub,
-      percentage: ((totalMembers) / subscription.limits.membersPerClub) * 100
-    },
-    planTier: subscription.plan_tier,
-    features: subscription.limits.features
+      limit: APP_LIMITS.membersPerClub,
+      percentage: ((totalMembers) / APP_LIMITS.membersPerClub) * 100
+    }
   }
 }

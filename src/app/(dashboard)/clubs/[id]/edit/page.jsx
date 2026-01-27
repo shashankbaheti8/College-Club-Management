@@ -54,7 +54,15 @@ export default function EditClubPage({ params }) {
     }
 
     // Check if user is admin of the club
-    if (club.admin_id !== user.id) {
+    const { data: member } = await supabase
+      .from('club_members')
+      .select('role')
+      .eq('club_id', clubId)
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .single()
+
+    if (!member) {
       toast.error('Only club admins can edit club details')
       router.push(`/clubs/${clubId}`)
       return

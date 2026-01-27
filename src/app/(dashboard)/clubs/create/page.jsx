@@ -51,15 +51,32 @@ export default function CreateClubPage() {
     }
 
     try {
+      // Check if user is platform admin
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('is_super_admin')
+        .eq('id', user.id)
+        .single()
+
+      if (profileError) throw profileError
+
+      // Only platform admins can create clubs
+      if (!profile?.is_super_admin) {
+        toast.error('Only platform administrators can create clubs.')
+        router.push('/clubs')
+        return
+      }
+
       const limit = await checkSubscriptionLimit('clubs')
       setLimitInfo(limit)
       
       if (!limit.allowed) {
-        toast.error(`Club creation limit reached! You can create up to ${limit.limit} clubs on your ${limit.planTier} plan.`)
+        toast.error(`Club creation limit reached! You can create up to ${limit.limit} clubs.`)
       }
     } catch (error) {
       console.error('Error checking limit:', error)
       toast.error('Failed to check subscription limit')
+      router.push('/clubs')
     } finally {
       setCheckingLimit(false)
     }
@@ -91,8 +108,7 @@ export default function CreateClubPage() {
         .insert({
           name: formData.name,
           description: formData.description,
-          category: formData.category,
-          admin_id: user.id
+          category: formData.category
         })
         .select()
         .single()
@@ -152,14 +168,9 @@ export default function CreateClubPage() {
             <CardTitle className="text-destructive">Club Creation Limit Reached</CardTitle>
             <CardDescription className="space-y-3">
               <p>
-                You've created {limitInfo.current} of {limitInfo.limit} allowed clubs on your <span className="font-semibold capitalize">{limitInfo.planTier}</span> plan.
+                You've created {limitInfo.current} of {limitInfo.limit} allowed clubs.
               </p>
               <div className="flex gap-2 pt-2">
-                <Link href="/settings/subscription" className="flex-1">
-                  <Button className="w-full" variant="default">
-                    Upgrade Plan
-                  </Button>
-                </Link>
                 <Link href="/clubs" className="flex-1">
                   <Button className="w-full" variant="outline">
                     View My Clubs
@@ -248,23 +259,7 @@ export default function CreateClubPage() {
         </CardContent>
       </Card>
 
-      {limitInfo && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Subscription Info</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Current Plan:</span>
-              <span className="font-medium capitalize">{limitInfo.planTier}</span>
-            </div>
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-muted-foreground">Clubs Created:</span>
-              <span className="font-medium">{limitInfo.current} / {limitInfo.limit}</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
     </div>
   )
 }

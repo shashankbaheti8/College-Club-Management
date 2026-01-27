@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,14 +12,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Loader2, Calendar } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { checkSubscriptionLimit } from '@/app/(dashboard)/actions'
 
-export default function CreateEventPage() {
+export default function EditEventPage({ params }) {
   const router = useRouter()
+  const unwrappedParams = use(params)
+  const eventId = unwrappedParams.id
+  
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
-  const [myAdminClubs, setMyAdminClubs] = useState([])
-  const [limitInfo, setLimitInfo] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -32,10 +33,10 @@ export default function CreateEventPage() {
   })
 
   useEffect(() => {
-    fetchMyClubs()
-  }, [])
+    fetchEventData()
+  }, [eventId])
 
-  async function fetchMyClubs() {
+  async function fetchEventData() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
@@ -44,37 +45,58 @@ export default function CreateEventPage() {
       return
     }
 
-    // Fetch clubs where user is admin
-    const { data: clubs } = await supabase
-      .from('clubs')
-      .select('*')
-      .eq('admin_id', user.id)
+    // Fetch event data
+    // Fetch event data
+    const { data: event, error } = await supabase
+      .from('events')
+      .select('*, clubs(id)')
+      .eq('id', eventId)
+      .single()
 
-    setMyAdminClubs(clubs || [])
-
-    // Check event creation limits
-    const limit = await checkSubscriptionLimit('activeEvents')
-    setLimitInfo(limit)
-    setLoadingData(false)
-
-    if (!limit.allowed) {
-      toast.error(`Event creation limit reached! You can create up to ${limit.limit} active events on your ${limit.planTier} plan.`)
+    if (error || !event) {
+      toast.error('Event not found')
+      router.push('/events')
+      return
     }
+
+    // Check if user is admin of the club
+    const { data: membership } = await supabase
+      .from('club_members')
+      .select('role')
+      .eq('club_id', event.club_id)
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .single()
+
+    if (!membership) {
+      toast.error('Only club admins can edit events')
+      router.push(`/events/${eventId}`)
+      return
+    }
+
+    setIsAdmin(true)
+
+    // Parse date and time from ISO string
+    const eventDate = new Date(event.date)
+    const dateStr = eventDate.toISOString().split('T')[0]
+    const timeStr = eventDate.toTimeString().slice(0, 5)
+
+    setFormData({
+      title: event.title || '',
+      description: event.description || '',
+      date: dateStr,
+      time: timeStr,
+      location: event.location || '',
+      club_id: event.club_id,
+      visibility: event.visibility || 'public',
+      max_attendees: event.max_attendees ? String(event.max_attendees) : ''
+    })
+
+    setLoadingData(false)
   }
 
-  const handleSubmit = async (e) => {
+  async function handleSubmit(e) {
     e.preventDefault()
-    
-    if (!limitInfo?.allowed) {
-      toast.error('You have reached your active event creation limit. Please upgrade your plan.')
-      return
-    }
-
-    if (!formData.club_id) {
-      toast.error('Please select a club')
-      return
-    }
-
     setLoading(true)
 
     try {
@@ -83,29 +105,26 @@ export default function CreateEventPage() {
       // Combine date and time
       const eventDateTime = new Date(`${formData.date}T${formData.time}`)
 
-      // Create the event
-      const { data: event, error } = await supabase
+      // Update the event
+      const { error } = await supabase
         .from('events')
-        .insert({
+        .update({
           title: formData.title,
           description: formData.description,
           date: eventDateTime.toISOString(),
           location: formData.location || null,
-          club_id: formData.club_id,
           visibility: formData.visibility,
-          max_attendees: formData.max_attendees ? parseInt(formData.max_attendees) : null,
-          status: 'upcoming'
+          max_attendees: formData.max_attendees ? parseInt(formData.max_attendees) : null
         })
-        .select()
-        .single()
+        .eq('id', eventId)
 
       if (error) throw error
 
-      toast.success('Event created successfully!')
-      router.push(`/events/${event.id}`)
+      toast.success('Event updated successfully!')
+      router.push(`/events/${eventId}`)
     } catch (error) {
-      console.error('Error creating event:', error)
-      toast.error(error.message || 'Failed to create event')
+      console.error('Error updating event:', error)
+      toast.error(error.message || 'Failed to update event')
     } finally {
       setLoading(false)
     }
@@ -119,91 +138,35 @@ export default function CreateEventPage() {
     )
   }
 
+  if (!isAdmin) {
+    return null
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/events">
+        <Link href={`/events/${eventId}`}>
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold">Create a New Event</h1>
+          <h1 className="text-2xl font-bold">Edit Event</h1>
           <p className="text-sm text-muted-foreground">
-            Schedule an event for your club members
+            Update event details
           </p>
         </div>
       </div>
-
-      {myAdminClubs.length === 0 && (
-        <Card className="border-yellow-500/50 bg-yellow-500/5">
-          <CardHeader>
-            <CardTitle>No Clubs Found</CardTitle>
-            <CardDescription>
-              You need to be an admin of a club to create events.
-              <Link href="/clubs/create" className="block mt-2 text-primary hover:underline">
-                Create a club first →
-              </Link>
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      )}
-
-      {limitInfo && !limitInfo.allowed && (
-        <Card className="border-destructive/50 bg-destructive/5">
-          <CardHeader>
-            <CardTitle className="text-destructive">Event Creation Limit Reached</CardTitle>
-            <CardDescription className="space-y-3">
-              <p>
-                You have {limitInfo.current} active events out of {limitInfo.limit} allowed on your <span className="font-semibold capitalize">{limitInfo.planTier}</span> plan.
-              </p>
-              <div className="flex gap-2 pt-2">
-                <Link href="/settings/subscription" className="flex-1">
-                  <Button className="w-full" variant="default">
-                    Upgrade Plan
-                  </Button>
-                </Link>
-                <Link href="/events" className="flex-1">
-                  <Button className="w-full" variant="outline">
-                    View My Events
-                  </Button>
-                </Link>
-              </div>
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>
           <CardTitle>Event Details</CardTitle>
           <CardDescription>
-            Fill in the information about your event
+            Modify the information about your event
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="club_id">Select Club *</Label>
-              <Select
-                value={formData.club_id}
-                onValueChange={(value) => setFormData({ ...formData, club_id: value })}
-                disabled={myAdminClubs.length === 0 || !limitInfo?.allowed}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a club" />
-                </SelectTrigger>
-                <SelectContent>
-                  {myAdminClubs.map((club) => (
-                    <SelectItem key={club.id} value={club.id}>
-                      {club.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="title">Event Title *</Label>
               <Input
@@ -212,7 +175,7 @@ export default function CreateEventPage() {
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
-                disabled={myAdminClubs.length === 0 || !limitInfo?.allowed}
+                disabled={loading}
               />
             </div>
 
@@ -226,7 +189,7 @@ export default function CreateEventPage() {
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   min={new Date().toISOString().split('T')[0]}
                   required
-                  disabled={myAdminClubs.length === 0 || !limitInfo?.allowed}
+                  disabled={loading}
                 />
               </div>
               <div className="space-y-2">
@@ -237,7 +200,7 @@ export default function CreateEventPage() {
                   value={formData.time}
                   onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                   required
-                  disabled={myAdminClubs.length === 0 || !limitInfo?.allowed}
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -249,7 +212,7 @@ export default function CreateEventPage() {
                 placeholder="e.g., Room 101, Main Building"
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                disabled={myAdminClubs.length === 0 || !limitInfo?.allowed}
+                disabled={loading}
               />
             </div>
 
@@ -262,7 +225,7 @@ export default function CreateEventPage() {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={4}
                 required
-                disabled={myAdminClubs.length === 0 || !limitInfo?.allowed}
+                disabled={loading}
               />
             </div>
 
@@ -272,7 +235,7 @@ export default function CreateEventPage() {
                 <Select
                   value={formData.visibility}
                   onValueChange={(value) => setFormData({ ...formData, visibility: value })}
-                  disabled={myAdminClubs.length === 0 || !limitInfo?.allowed}
+                  disabled={loading}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -292,25 +255,21 @@ export default function CreateEventPage() {
                   value={formData.max_attendees}
                   onChange={(e) => setFormData({ ...formData, max_attendees: e.target.value })}
                   min="1"
-                  disabled={myAdminClubs.length === 0 || !limitInfo?.allowed}
+                  disabled={loading}
                 />
               </div>
             </div>
 
             <div className="flex gap-4">
-              <Link href="/events" className="flex-1">
+              <Link href={`/events/${eventId}`} className="flex-1">
                 <Button type="button" variant="outline" className="w-full">
                   Cancel
                 </Button>
               </Link>
-              <Button 
-                type="submit" 
-                className="flex-1" 
-                disabled={loading || myAdminClubs.length === 0 || !limitInfo?.allowed}
-              >
+              <Button type="submit" className="flex-1" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Calendar className="mr-2 h-4 w-4" />
-                Create Event
+                Update Event
               </Button>
             </div>
           </form>

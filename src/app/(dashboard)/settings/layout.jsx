@@ -18,11 +18,9 @@ export default async function SettingsLayout({ children }) {
         <p className="text-muted-foreground">Manage your account settings and preferences</p>
       </div>
 
-      <Tabs defaultValue="subscription" className="space-y-4">
+      <Tabs defaultValue="profile" className="space-y-4">
         <TabsList>
-          <Link href="/settings/subscription">
-            <TabsTrigger value="subscription">Subscription</TabsTrigger>
-          </Link>
+
           <Link href="/settings/profile">
             <TabsTrigger value="profile">Profile</TabsTrigger>
           </Link>

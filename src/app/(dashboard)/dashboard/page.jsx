@@ -22,8 +22,7 @@ export default async function DashboardPage() {
         id,
         name,
         description,
-        member_count,
-        admin_id
+        member_count
       )
     `)
     .eq('user_id', user.id)
@@ -245,7 +244,7 @@ export default async function DashboardPage() {
                             {membership.role}
                           </p>
                         </div>
-                        {membership.clubs.admin_id === user.id && (
+                        {membership.role === 'admin' && (
                           <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-full">
                             Admin
                           </span>

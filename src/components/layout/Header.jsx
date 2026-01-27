@@ -1,7 +1,7 @@
 import React from 'react'
 import { MobileSidebar } from './Sidebar'
 import { ThemeToggle } from '@/components/ThemeToggle'
-import NotificationDropdown from '@/components/NotificationDropdown'
+
 
 export default function Header({ user }) {
   return (
@@ -10,7 +10,7 @@ export default function Header({ user }) {
       <div className="w-full flex-1">
         
       </div>
-      <NotificationDropdown />
+
       <ThemeToggle />
     </header>
   )

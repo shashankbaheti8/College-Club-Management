@@ -21,10 +21,7 @@ export default async function ClubDetailPage({ params }) {
   // Fetch club details
   const { data: club, error } = await supabase
     .from('clubs')
-    .select(`
-      *,
-      profiles:admin_id (full_name, avatar_url)
-    `)
+    .select('*')
     .eq('id', id)
     .single()
 
@@ -32,54 +29,68 @@ export default async function ClubDetailPage({ params }) {
     notFound()
   }
 
-  // Check if current user is a member
-  const { data: membership } = await supabase
-    .from('club_members')
-    .select('role')
-    .eq('club_id', id)
-    .eq('user_id', user.id)
-    .single()
+  // Fetch all related data in parallel
+  const [
+    { data: membership },
+    { data: clubAdmins },
+    { data: members },
+    { data: upcomingEvents },
+    { data: announcements }
+  ] = await Promise.all([
+    // Check membership
+    supabase
+      .from('club_members')
+      .select('role')
+      .eq('club_id', id)
+      .eq('user_id', user.id)
+      .single(),
 
-  const isAdmin = club.admin_id === user.id
-  const isMember = !!membership
-  const userRole = membership?.role || null
+    // Fetch admins
+    supabase
+      .from('club_members')
+      .select(`
+        profiles:user_id (full_name)
+      `)
+      .eq('club_id', id)
+      .eq('role', 'admin'),
 
-  // Fetch members
-  const { data: members } = await supabase
-    .from('club_members')
-    .select(`
-      id,
-      role,
-      joined_at,
-      profiles:user_id (
+    // Fetch members
+    supabase
+      .from('club_members')
+      .select(`
         id,
-        full_name,
-        avatar_url
-      )
-    `)
-    .eq('club_id', id)
-    .order('joined_at', { ascending: true })
+        role,
+        joined_at,
+        profiles:user_id (
+          id,
+          full_name,
+          avatar_url
+        )
+      `)
+      .eq('club_id', id)
+      .order('joined_at', { ascending: true }),
 
-  // Fetch upcoming events
-  const { data: upcomingEvents } = await supabase
-    .from('events')
-    .select('*')
-    .eq('club_id', id)
-    .eq('status', 'upcoming')
-    .gte('date', new Date().toISOString())
-    .order('date', { ascending: true })
-    .limit(5)
+    // Fetch upcoming events
+    supabase
+      .from('events')
+      .select('*')
+      .eq('club_id', id)
+      .eq('status', 'upcoming')
+      .gte('date', new Date().toISOString())
+      .order('date', { ascending: true })
+      .limit(5),
 
-  // Fetch recent announcements
-  const { data: announcements } = await supabase
-    .from('announcements')
-    .select(`
-      *,
-      profiles:created_by (full_name)
-    `)
-    .eq('club_id', id)
-    .order('created_at', { ascending: false })
-    .limit(5)
+    // Fetch announcements
+    supabase
+      .from('announcements')
+      .select(`
+        *,
+        profiles:created_by (full_name)
+      `)
+      .eq('club_id', id)
+      .order('created_at', { ascending: false })
+      .limit(5)
+  ])
 
   return (
     <div className="space-y-6">
@@ -97,7 +108,7 @@ export default async function ClubDetailPage({ params }) {
               <Badge variant="outline" className="capitalize">{club.category}</Badge>
             </div>
             <p className="text-muted-foreground mt-1">
-              Managed by {club.profiles?.full_name}
+              Managed by {clubAdmins?.map(a => a.profiles?.full_name).join(', ') || 'Club Admins'}
             </p>
           </div>
         </div>

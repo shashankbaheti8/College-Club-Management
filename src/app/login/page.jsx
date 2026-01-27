@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, Suspense } from 'react'
-import { signup } from '../auth/actions'
+import { login } from '../auth/actions'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,50 +10,64 @@ import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
-function SignupForm() {
+function LoginForm() {
     const searchParams = useSearchParams()
     const error = searchParams.get('error')
-
+    const message = searchParams.get('message')
+  
     const toastShownRef = React.useRef(false)
     const router = useRouter()
+  
+    useEffect(() => {
+        // Check if user is already logged in
+        const checkAuth = async () => {
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                router.push('/dashboard')
+            }
+        }
+        checkAuth()
+    }, [router])
 
     useEffect(() => {
+        // Reset ref when params change, or handle dependency correctly
+        // Actually, cleaner way:
         if (error && !toastShownRef.current) {
             toast.error(error)
             toastShownRef.current = true
-            router.replace('/signup')
+            router.replace('/login') // Clear url
+        }
+        if (message && !toastShownRef.current) {
+            toast.success(message)
+            toastShownRef.current = true
+             router.replace('/login') // Clear url
         }
         
-         if (!error) {
+        // Reset ref if no params (e.g. after clear) so it works again if new params come?
+        // No, because this eff runs on param change.
+        if (!error && !message) {
             toastShownRef.current = false
         }
-    }, [error, router])
+
+    }, [error, message, router])
 
     return (
         <Card className="w-full max-w-sm mx-auto shadow-none border-0 bg-transparent">
             <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
             <div className="flex flex-col space-y-2 text-center">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Create an account
+              <h1 className="text-2xl font-semibold tracking-tight text-black">
+                Welcome back
               </h1>
               <p className="text-sm text-muted-foreground">
-                Enter your details below to create your account
+                Enter your email to sign in to your account
               </p>
             </div>
-            <form action={signup} className='grid gap-6'>
+            <form action={login} className='grid gap-6'>
                 <div className="grid gap-2">
-                    <Label htmlFor="full_name">Full Name</Label>
-                    <Input
-                        id="full_name"
-                        name="full_name"
-                        placeholder="John Doe"
-                        type="text"
-                        required
-                    />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email" className="text-black">Email</Label>
                     <Input
                         id="email"
                         name="email"
@@ -62,24 +76,27 @@ function SignupForm() {
                         autoCapitalize="none"
                         autoComplete="email"
                         autoCorrect="off"
+                        className="border-black text-black"
                         required
                     />
                 </div>
                 <div className="grid gap-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password" className="text-black">Password</Label>
                     <Input
                         id="password"
                         name="password"
                         type="password"
+                        className="border-black text-black"
+                        placeholder='password'
                         required
                     />
                 </div>
-                <Button>Sign Up with Email</Button>
+                <Button className="w-full bg-black text-white hover:bg-zinc-800">Sign In with Email</Button>
             </form>
-           
+            
             <p className="px-8 text-center text-sm text-muted-foreground">
-              <Link href="/login" className="hover:text-brand underline underline-offset-4">
-                Already have an account? Sign In
+              <Link href="/signup" className="hover:text-zinc-700 underline underline-offset-4">
+                Don&apos;t have an account? Sign Up
               </Link>
             </p>
           </div>
@@ -87,11 +104,11 @@ function SignupForm() {
     )
 }
 
-export default function SignupPage() {
+export default function LoginPage() {
   return (
     <div className="w-full min-h-screen flex items-center justify-center bg-background md:grid md:grid-cols-2 lg:px-0">
-      <div className="relative hidden h-full flex-col bg-muted p-10 text-white dark:border-r lg:flex">
-        <div className="absolute inset-0 bg-primary" /> {/* Vibrant background */}
+      <div className="relative hidden h-full flex-col p-10 text-white lg:flex">
+        <div className="absolute inset-0 bg-black" />
         <div className="relative z-20 flex items-center text-lg font-medium">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -110,14 +127,17 @@ export default function SignupPage() {
         <div className="relative z-20 mt-auto">
           <blockquote className="space-y-2">
             <p className="text-lg">
-              &ldquo;Join thousands of students managing their campus life effortlessly.&rdquo;
+              &ldquo;This library has saved me countless hours of work and
+              helped me deliver stunning designs to my clients faster than
+              ever before.&rdquo;
             </p>
+            <footer className="text-sm">Sofia Davis</footer>
           </blockquote>
         </div>
       </div>
-      <div className="p-4 lg:p-8 h-full flex items-center justify-center">
+      <div className="p-4 lg:p-8 h-full flex items-center justify-center bg-white text-black">
         <Suspense fallback={<div className="flex justify-center"><Loader2 className="animate-spin" /></div>}>
-            <SignupForm />
+            <LoginForm />
         </Suspense>
       </div>
     </div>

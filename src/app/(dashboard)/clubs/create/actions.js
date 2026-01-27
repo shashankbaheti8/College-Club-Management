@@ -20,14 +20,31 @@ export async function createClub(formData) {
   const { data, error } = await supabase
     .from('clubs')
     .insert([
-      { 
           name, 
           description, 
-          category,
-          admin_id: user.id 
-      },
+          category
     ])
     .select()
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  // Add creator as admin member
+  const { error: memberError } = await supabase
+    .from('club_members')
+    .insert({
+      club_id: data.id,
+      user_id: user.id,
+      role: 'admin'
+    })
+
+  if (memberError) {
+    console.error('Error adding admin member:', memberError)
+    // Note: We might want to rollback club creation here in a real transaction, 
+    // but for now we log it.
+  }
 
   if (error) {
     throw new Error(error.message)

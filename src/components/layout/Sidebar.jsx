@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -20,28 +20,45 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { logout } from '@/app/auth/actions'
 
-const navItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'My Clubs', href: '/clubs', icon: Users },
-    { name: 'Events', href: '/events', icon: CalendarDays },
-    { name: 'Create Club', href: '/clubs/create', icon: PlusCircle },
-]
-
 export function Sidebar({ className, user }) {
     const pathname = usePathname()
+    const [showLogoutDialog, setShowLogoutDialog] = useState(false)
 
     const handleLogout = async () => {
         await logout()
+        setShowLogoutDialog(false)
     }
 
     const getInitials = (name) => {
         if (!name) return 'U'
         return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     }
+
+    // Base navigation items
+    const baseNavItems = [
+        { name: 'Dashboard', href: '/dashboard', icon: Home },
+        { name: 'My Clubs', href: '/clubs', icon: Users },
+        { name: 'Events', href: '/events', icon: CalendarDays },
+    ]
+
+    // Add Create Club only for platform admins
+    const navItems = user?.is_super_admin 
+        ? [...baseNavItems, { name: 'Create Club', href: '/clubs/create', icon: PlusCircle }]
+        : baseNavItems
 
     return (
         <div className="flex h-full flex-col gap-2">
@@ -52,7 +69,7 @@ export function Sidebar({ className, user }) {
                  </Link>
              </div>
              
-             <div className="flex-1 overflow-y-auto">
+             <div className="flex-1">
                  <nav className="grid items-start px-2 text-sm font-medium lg:px-4 gap-1 py-2">
                      {navItems.map((item) => (
                          <Link key={item.href} href={item.href}>
@@ -82,13 +99,30 @@ export function Sidebar({ className, user }) {
                          <p className="truncate text-xs text-muted-foreground">{user?.email || ''}</p>
                      </div>
                      <button 
-                        onClick={handleLogout}
+                        onClick={() => setShowLogoutDialog(true)}
                         className="hover:bg-destructive/10 p-2 rounded-md transition-colors"
                         title="Logout"
                      >
                         <LogOut className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                      </button>
                  </div>
+                 
+                 <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+                     <AlertDialogContent>
+                         <AlertDialogHeader>
+                             <AlertDialogTitle>Are you sure you want to logout?</AlertDialogTitle>
+                             <AlertDialogDescription>
+                                 You will be logged out of your account and redirected to the login page.
+                             </AlertDialogDescription>
+                         </AlertDialogHeader>
+                         <AlertDialogFooter>
+                             <AlertDialogCancel>Cancel</AlertDialogCancel>
+                             <AlertDialogAction onClick={handleLogout} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                 Logout
+                             </AlertDialogAction>
+                         </AlertDialogFooter>
+                     </AlertDialogContent>
+                 </AlertDialog>
              </div>
         </div>
     )
@@ -96,15 +130,29 @@ export function Sidebar({ className, user }) {
 
 export function MobileSidebar({ user }) {
     const pathname = usePathname()
+    const [showLogoutDialog, setShowLogoutDialog] = useState(false)
     
     const handleLogout = async () => {
         await logout()
+        setShowLogoutDialog(false)
     }
 
     const getInitials = (name) => {
         if (!name) return 'U'
         return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     }
+
+    // Base navigation items
+    const baseNavItems = [
+        { name: 'Dashboard', href: '/dashboard', icon: Home },
+        { name: 'My Clubs', href: '/clubs', icon: Users },
+        { name: 'Events', href: '/events', icon: CalendarDays },
+    ]
+
+    // Add Create Club only for platform admins
+    const navItems = user?.is_super_admin 
+        ? [...baseNavItems, { name: 'Create Club', href: '/clubs/create', icon: PlusCircle }]
+        : baseNavItems
 
     return (
         <Sheet>
@@ -150,13 +198,30 @@ export function MobileSidebar({ user }) {
                                 <p className="truncate text-xs text-muted-foreground">{user?.email || ''}</p>
                             </div>
                             <button 
-                                onClick={handleLogout}
+                                onClick={() => setShowLogoutDialog(true)}
                                 className="hover:bg-destructive/10 p-2 rounded-md transition-colors"
                                 title="Logout"
                             >
                                 <LogOut className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                             </button>
                         </div>
+                        
+                        <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure you want to logout?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        You will be logged out of your account and redirected to the login page.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleLogout} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                        Logout
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                     </div>
                 </div>
             </SheetContent>

@@ -11,7 +11,13 @@ export default async function ClubsPage() {
     // Fetch all clubs
     const { data: clubs } = await supabase
         .from('clubs')
-        .select('*, profiles(full_name)')
+        .select(`
+            *,
+            club_members (
+                role,
+                profiles (full_name)
+            )
+        `)
     
     // Get user's club memberships to show which clubs they've joined
     let userClubIds = []
@@ -39,6 +45,8 @@ export default async function ClubsPage() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {clubs?.map((club) => {
                     const isMember = userClubIds.includes(club.id)
+                    const admins = club.club_members?.filter(m => m.role === 'admin')
+                    const adminNames = admins?.map(a => a.profiles?.full_name).join(', ') || 'Club Admins'
                     
                     return (
                         <Card key={club.id} className="flex flex-col hover:shadow-lg transition-shadow">
@@ -54,7 +62,7 @@ export default async function ClubsPage() {
                                     )}
                                 </div>
                                 <CardTitle className="text-xl line-clamp-1">{club.name}</CardTitle>
-                                <CardDescription>By {club.profiles?.full_name}</CardDescription>
+                                <CardDescription>By {adminNames}</CardDescription>
                             </CardHeader>
                             <CardContent className="flex-1 flex flex-col gap-4 pt-0">
                                 <p className="text-sm text-muted-foreground line-clamp-3 flex-1">
