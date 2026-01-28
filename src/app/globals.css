@@ -123,3 +123,15 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Login form */
+.login-form input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+  -webkit-text-fill-color: #000 !important;
+}
+
+/* Signup form */
+.signup-form input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #000 inset !important;
+  -webkit-text-fill-color: #fff !important;
+}

@@ -54,7 +54,7 @@ function SignupForm() {
                 Enter your details below to create your account
               </p>
             </div>
-            <form action={signup} className='grid gap-6'>
+            <form action={signup} className='grid gap-6 signup-form'>
                 <div className="grid gap-2">
                     <Label htmlFor="full_name">Full Name</Label>
                     <Input

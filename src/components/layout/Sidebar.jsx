@@ -107,7 +107,7 @@ export function Sidebar({ className, user, isClubAdmin, isPlatformAdmin }) {
                      </div>
                      <button 
                         onClick={() => setShowLogoutDialog(true)}
-                        className="hover:bg-destructive/10 p-2 rounded-md transition-colors"
+                        className="hover:bg-destructive/10 p-2 rounded-md transition-colors cursor-pointer"
                         title="Logout"
                      >
                         <LogOut className="h-4 w-4 text-muted-foreground hover:text-destructive" />

@@ -65,7 +65,7 @@ function LoginForm() {
                 Enter your email to sign in to your account
               </p>
             </div>
-            <form action={login} className='grid gap-6'>
+            <form action={login} className='grid gap-6 login-form'>
                 <div className="grid gap-2">
                     <Label htmlFor="email" className="text-black">Email</Label>
                     <Input
