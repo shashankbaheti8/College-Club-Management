@@ -6,8 +6,33 @@ import { Button } from '@/components/ui/button'
 
 export default async function EventsPage() {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  let canCreateEvent = false
+  let myClubIds = []
+  let isPlatform = false
+
+  if (user) {
+      // Check platform admin
+      const { isPlatformAdmin } = await import('@/lib/rbac')
+      isPlatform = await isPlatformAdmin(user.id)
+
+      // Fetch my clubs (admin or member)
+      const { data: members } = await supabase
+        .from('club_members')
+        .select('club_id, role')
+        .eq('user_id', user.id)
+      
+      if (members && members.length > 0) {
+        myClubIds = members.map(m => m.club_id)
+        // Check if admin of any club for create permission
+        const adminClubs = members.filter(m => m.role === 'admin')
+        canCreateEvent = adminClubs.length > 0
+      }
+  }
   
-  const { data: events, error } = await supabase
+  // Build query
+  let query = supabase
     .from('events')
     .select(`
         *,
@@ -17,13 +42,23 @@ export default async function EventsPage() {
     `)
     .order('date', { ascending: true })
 
+  // Apply filter: If NOT platform admin AND has clubs, restrict to my clubs.
+  // If user has NO clubs (Viewer), they see ALL events (per requirement).
+  if (!isPlatform && myClubIds.length > 0) {
+      query = query.in('club_id', myClubIds)
+  }
+
+  const { data: events, error } = await query
+
   return (
     <div className='space-y-6'>
          <div className="flex items-center justify-between">
             <h1 className="text-lg font-semibold md:text-2xl">Upcoming Events</h1>
-            <Link href="/events/create">
-                <Button>Create Event</Button>
-            </Link>
+            {canCreateEvent && (
+                <Link href="/events/create">
+                    <Button>Create Event</Button>
+                </Link>
+            )}
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

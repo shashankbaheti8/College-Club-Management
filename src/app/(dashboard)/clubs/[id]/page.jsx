@@ -4,10 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Users, Calendar, Settings, ArrowLeft, UserPlus } from "lucide-react"
+import { Users, Calendar, Settings, ArrowLeft, UserPlus, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import CreateAnnouncementModal from "@/components/CreateAnnouncementModal"
+import InviteMemberModal from "@/components/InviteMemberModal"
+import ConfirmButton from "@/components/ui/ConfirmButton"
+import { deleteAnnouncement, removeMember } from '@/app/(dashboard)/actions'
 
 export default async function ClubDetailPage({ params }) {
   const { id } = await params
@@ -29,27 +32,21 @@ export default async function ClubDetailPage({ params }) {
     notFound()
   }
 
-  // Fetch all related data in parallel
-  const [
-    { data: membership },
-    { data: clubAdmins },
-    { data: members },
-    { data: upcomingEvents },
-    { data: announcements }
-  ] = await Promise.all([
+    // Fetch all related data in parallel
+    const results = await Promise.all([
     // Check membership
     supabase
       .from('club_members')
       .select('role')
       .eq('club_id', id)
       .eq('user_id', user.id)
-      .single(),
+      .maybeSingle(), // Use maybeSingle to avoid 406 if row doesn't exist
 
     // Fetch admins
     supabase
       .from('club_members')
       .select(`
-        profiles:user_id (full_name)
+        profiles:club_members_profiles_fkey (full_name)
       `)
       .eq('club_id', id)
       .eq('role', 'admin'),
@@ -61,7 +58,7 @@ export default async function ClubDetailPage({ params }) {
         id,
         role,
         joined_at,
-        profiles:user_id (
+        profiles:club_members_profiles_fkey (
           id,
           full_name,
           avatar_url
@@ -85,15 +82,51 @@ export default async function ClubDetailPage({ params }) {
       .from('announcements')
       .select(`
         *,
-        profiles:created_by (full_name)
+        profiles:announcements_created_by_fkey (full_name)
       `)
       .eq('club_id', id)
       .order('created_at', { ascending: false })
       .limit(5)
   ])
 
+  const [membershipResult, adminResult, membersResult, eventsResult, announcementsResult] = results
+  
+  // Destructure data
+  const membership = membershipResult.data
+  const clubAdmins = adminResult.data
+  const members = membersResult.data
+  const upcomingEvents = eventsResult.data
+  const announcements = announcementsResult.data
+
+  // Debug Errors
+  const errors = results.filter(r => r.error).map(r => r.error.message)
+  if (errors.length > 0) {
+      console.error("Club Details Fetch Errors:", errors)
+  }
+
+  // Define role helpers
+  const userRole = membership?.role
+  const isMember = !!membership
+  
+  // Check platform admin for super-access
+  const { isPlatformAdmin } = await import('@/lib/rbac')
+  const isPlatform = await isPlatformAdmin(user.id)
+  
+  const isAdmin = userRole === 'admin' || isPlatform
+  const canViewAnnouncements = isMember || isAdmin
+  const canViewMembers = isMember || isAdmin
+
+
   return (
     <div className="space-y-6">
+      {errors.length > 0 && (
+          <div className="bg-destructive/10 text-destructive p-4 rounded-md border border-destructive/20">
+              <h3 className="font-bold">Errors Loading Club Details:</h3>
+              <ul className="list-disc pl-5">
+                  {errors.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+          </div>
+      )}
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
@@ -113,45 +146,31 @@ export default async function ClubDetailPage({ params }) {
           </div>
         </div>
         <div className="flex gap-2">
-          {!isMember && (
-            <form action={async () => {
-              'use server'
-              const supabase = await createClient()
-              const { data: { user } } = await supabase.auth.getUser()
-              
-              await supabase.from('club_members').insert({
-                club_id: id,
-                user_id: user.id,
-                role: 'member'
-              })
-              
-              redirect(`/clubs/${id}?joined=true`)
-            }}>
-              <Button>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Join Club
-              </Button>
-            </form>
-          )}
+          {/* Join Club removed as per requirements */}
           {isMember && !isAdmin && (
-            <form action={async () => {
-              'use server'
-              const supabase = await createClient()
-              const { data: { user } } = await supabase.auth.getUser()
-              
-              await supabase.from('club_members')
-                .delete()
-                .eq('club_id', id)
-                .eq('user_id', user.id)
-              
-              redirect(`/clubs?left=${id}`)
-            }}>
-              <Button variant="destructive">
+            <ConfirmButton
+                title="Leave Club"
+                description="Are you sure you want to leave this club?"
+                actionLabel="Leave"
+                variant="destructive"
+                onConfirm={async () => {
+                  'use server'
+                  const supabase = await createClient()
+                  const { data: { user } } = await supabase.auth.getUser()
+                  
+                  await supabase.from('club_members')
+                    .delete()
+                    .eq('club_id', id)
+                    .eq('user_id', user.id)
+                  
+                  redirect(`/clubs?left=${id}`)
+                }}
+            >
                 Leave Club
-              </Button>
-            </form>
+            </ConfirmButton>
           )}
-          {isAdmin && (
+          {/* Club Admin Only Actions */}
+          {userRole === 'admin' && (
             <>
               <Link href={`/clubs/${id}/edit`}>
                 <Button variant="outline">
@@ -165,6 +184,29 @@ export default async function ClubDetailPage({ params }) {
                 </Button>
               </Link>
             </>
+          )}
+           {/* Platform Admin Only Action */}
+           {isPlatform && (
+             <ConfirmButton
+                title="Delete Club"
+                description="Are you sure you want to delete this club? This action cannot be undone and will remove all members and events."
+                actionLabel="Delete Club"
+                variant="destructive"
+                onConfirm={async () => {
+                  'use server'
+                  const supabase = await createClient()
+                  
+                  // Verify platform admin again on server action for safety
+                  const { data: { user } } = await supabase.auth.getUser()
+                  const { isPlatformAdmin } = await import('@/lib/rbac')
+                  if (!await isPlatformAdmin(user.id)) return
+    
+                  await supabase.from('clubs').delete().eq('id', id)
+                  redirect('/clubs')
+                }}
+             >
+                Delete Club
+             </ConfirmButton>
           )}
         </div>
       </div>
@@ -203,9 +245,9 @@ export default async function ClubDetailPage({ params }) {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
+          {canViewMembers && <TabsTrigger value="members">Members</TabsTrigger>}
           <TabsTrigger value="events">Events</TabsTrigger>
-          {isMember && <TabsTrigger value="announcements">Announcements</TabsTrigger>}
+          {canViewAnnouncements && <TabsTrigger value="announcements">Announcements</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -264,6 +306,7 @@ export default async function ClubDetailPage({ params }) {
           </Card>
         </TabsContent>
 
+        {canViewMembers && (
         <TabsContent value="members" className="space-y-4">
           <Card>
             <CardHeader>
@@ -273,10 +316,7 @@ export default async function ClubDetailPage({ params }) {
                   <CardDescription>{members?.length || 0} members</CardDescription>
                 </div>
                 {isAdmin && (
-                  <Button size="sm">
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Invite Members
-                  </Button>
+                  <InviteMemberModal clubId={id} />
                 )}
               </div>
             </CardHeader>
@@ -296,8 +336,26 @@ export default async function ClubDetailPage({ params }) {
                         <p className="text-sm text-muted-foreground capitalize">{member.role}</p>
                       </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      Joined {new Date(member.joined_at).toLocaleDateString()}
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs text-muted-foreground">
+                        Joined {new Date(member.joined_at).toLocaleDateString()}
+                      </div>
+                      {isAdmin && (
+                        <ConfirmButton
+                          title="Remove Member"
+                          description="Are you sure you want to remove this member from the club?"
+                          actionLabel="Remove"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                          onConfirm={async () => {
+                            'use server'
+                            await removeMember(member.id)
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </ConfirmButton>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -305,6 +363,7 @@ export default async function ClubDetailPage({ params }) {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
         <TabsContent value="events" className="space-y-4">
           <Card>
@@ -353,7 +412,7 @@ export default async function ClubDetailPage({ params }) {
           </Card>
         </TabsContent>
 
-        {isMember && (
+        {canViewAnnouncements && (
           <TabsContent value="announcements" className="space-y-4">
             <Card>
               <CardHeader>
@@ -368,10 +427,28 @@ export default async function ClubDetailPage({ params }) {
                     {announcements.map((announcement) => (
                       <div key={announcement.id} className="p-4 border rounded-lg">
                         <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-semibold">{announcement.title}</h4>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(announcement.created_at).toLocaleDateString()}
-                          </span>
+                          <div>
+                            <h4 className="font-semibold">{announcement.title}</h4>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(announcement.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          {isAdmin && (
+                            <ConfirmButton
+                              title="Delete Announcement"
+                              description="Are you sure you want to delete this announcement? This cannot be undone."
+                              actionLabel="Delete"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onConfirm={async () => {
+                                'use server'
+                                await deleteAnnouncement(announcement.id)
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </ConfirmButton>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                           {announcement.content}

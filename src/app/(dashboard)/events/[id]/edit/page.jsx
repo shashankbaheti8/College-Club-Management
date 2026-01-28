@@ -28,8 +28,7 @@ export default function EditEventPage({ params }) {
     time: '',
     location: '',
     club_id: '',
-    visibility: 'public',
-    max_attendees: ''
+    visibility: 'public'
   })
 
   useEffect(() => {
@@ -88,8 +87,7 @@ export default function EditEventPage({ params }) {
       time: timeStr,
       location: event.location || '',
       club_id: event.club_id,
-      visibility: event.visibility || 'public',
-      max_attendees: event.max_attendees ? String(event.max_attendees) : ''
+      visibility: event.visibility || 'public'
     })
 
     setLoadingData(false)
@@ -105,6 +103,13 @@ export default function EditEventPage({ params }) {
       // Combine date and time
       const eventDateTime = new Date(`${formData.date}T${formData.time}`)
 
+      // Validate date is not in the past
+      if (eventDateTime < new Date()) {
+        toast.error('Event date and time cannot be in the past')
+        setLoading(false)
+        return
+      }
+
       // Update the event
       const { error } = await supabase
         .from('events')
@@ -113,8 +118,7 @@ export default function EditEventPage({ params }) {
           description: formData.description,
           date: eventDateTime.toISOString(),
           location: formData.location || null,
-          visibility: formData.visibility,
-          max_attendees: formData.max_attendees ? parseInt(formData.max_attendees) : null
+          visibility: formData.visibility
         })
         .eq('id', eventId)
 
@@ -229,8 +233,7 @@ export default function EditEventPage({ params }) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <div className="space-y-2">
                 <Label htmlFor="visibility">Visibility *</Label>
                 <Select
                   value={formData.visibility}
@@ -245,19 +248,6 @@ export default function EditEventPage({ params }) {
                     <SelectItem value="private">Private (Club Members Only)</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="max_attendees">Max Attendees (Optional)</Label>
-                <Input
-                  id="max_attendees"
-                  type="number"
-                  placeholder="Unlimited"
-                  value={formData.max_attendees}
-                  onChange={(e) => setFormData({ ...formData, max_attendees: e.target.value })}
-                  min="1"
-                  disabled={loading}
-                />
-              </div>
             </div>
 
             <div className="flex gap-4">

@@ -27,8 +27,7 @@ export default function CreateEventPage() {
     time: '',
     location: '',
     club_id: '',
-    visibility: 'public',
-    max_attendees: ''
+    visibility: 'public'
   })
 
   useEffect(() => {
@@ -53,22 +52,26 @@ export default function CreateEventPage() {
 
     const clubs = memberships?.map(m => m.clubs) || []
     setMyAdminClubs(clubs)
-
-    // Check event creation limits
-    const limit = await checkSubscriptionLimit('activeEvents')
-    setLimitInfo(limit)
     setLoadingData(false)
+  }
 
+  const handleClubChange = async (clubId) => {
+    setFormData({ ...formData, club_id: clubId })
+    
+    // Check limit for this specific club
+    const limit = await checkSubscriptionLimit('activeEvents', clubId)
+    setLimitInfo(limit)
+    
     if (!limit.allowed) {
-      toast.error(`Event creation limit reached! You can create up to ${limit.limit} active events.`)
+      toast.error(`This club has reached its event limit (${limit.current}/${limit.limit}).`)
     }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (!limitInfo?.allowed) {
-      toast.error('You have reached your active event creation limit. Please upgrade your plan.')
+    if (limitInfo && !limitInfo.allowed) {
+      toast.error('This club has reached its active event limit. Please delete old events or upgrade.')
       return
     }
 
@@ -85,6 +88,13 @@ export default function CreateEventPage() {
       // Combine date and time
       const eventDateTime = new Date(`${formData.date}T${formData.time}`)
 
+      // Validate date is not in the past
+      if (eventDateTime < new Date()) {
+        toast.error('Event date and time cannot be in the past')
+        setLoading(false)
+        return
+      }
+
       // Create the event
       const { data: event, error } = await supabase
         .from('events')
@@ -95,7 +105,6 @@ export default function CreateEventPage() {
           location: formData.location || null,
           club_id: formData.club_id,
           visibility: formData.visibility,
-          max_attendees: formData.max_attendees ? parseInt(formData.max_attendees) : null,
           status: 'upcoming'
         })
         .select()
@@ -154,10 +163,10 @@ export default function CreateEventPage() {
       {limitInfo && !limitInfo.allowed && (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardHeader>
-            <CardTitle className="text-destructive">Event Creation Limit Reached</CardTitle>
+            <CardTitle className="text-destructive">Club Event Limit Reached</CardTitle>
             <CardDescription className="space-y-3">
               <p>
-                You have {limitInfo.current} active events out of {limitInfo.limit} allowed.
+                This club has {limitInfo.current} active events out of {limitInfo.limit} allowed.
               </p>
               <div className="flex gap-2 pt-2">
                 <Link href="/events" className="flex-1">
@@ -184,8 +193,8 @@ export default function CreateEventPage() {
               <Label htmlFor="club_id">Select Club *</Label>
               <Select
                 value={formData.club_id}
-                onValueChange={(value) => setFormData({ ...formData, club_id: value })}
-                disabled={myAdminClubs.length === 0 || !limitInfo?.allowed}
+                onValueChange={handleClubChange}
+                disabled={myAdminClubs.length === 0}
                 required
               >
                 <SelectTrigger>
@@ -263,8 +272,7 @@ export default function CreateEventPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <div className="space-y-2">
                 <Label htmlFor="visibility">Visibility *</Label>
                 <Select
                   value={formData.visibility}
@@ -279,19 +287,6 @@ export default function CreateEventPage() {
                     <SelectItem value="private">Private (Club Members Only)</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="max_attendees">Max Attendees (Optional)</Label>
-                <Input
-                  id="max_attendees"
-                  type="number"
-                  placeholder="Unlimited"
-                  value={formData.max_attendees}
-                  onChange={(e) => setFormData({ ...formData, max_attendees: e.target.value })}
-                  min="1"
-                  disabled={myAdminClubs.length === 0 || !limitInfo?.allowed}
-                />
-              </div>
             </div>
 
             <div className="flex gap-4">

@@ -4,7 +4,7 @@ import { APP_LIMITS } from './subscription'
 /**
  * Check if user has reached their limit for a resource (SERVER ONLY)
  */
-export async function checkLimit(userId, resourceType) {
+export async function checkLimit(userId, resourceType, contextId = null) {
   const supabase = await createClient()
   const limits = APP_LIMITS
   
@@ -27,7 +27,23 @@ export async function checkLimit(userId, resourceType) {
       }
     
     case 'activeEvents':
-      // Count active events across all user's clubs
+      // If clubId (contextId) is provided, check THAT club specifically
+      if (contextId) {
+        const { count } = await supabase
+          .from('events')
+          .select('*', { count: 'exact', head: true })
+          .eq('club_id', contextId)
+          .in('status', ['upcoming', 'ongoing'])
+        
+        currentCount = count || 0
+        return {
+          allowed: currentCount < limits.activeEventsPerClub,
+          current: currentCount,
+          limit: limits.activeEventsPerClub
+        }
+      }
+
+      // Count active events across all user's clubs (Aggregate view)
       const { data: adminMemberships } = await supabase
         .from('club_members')
         .select('club_id')
@@ -47,7 +63,7 @@ export async function checkLimit(userId, resourceType) {
       
       currentCount = eventCount || 0
       return {
-        allowed: currentCount < limits.activeEventsPerClub,
+        allowed: true, // Always allow global check, real check happens per club
         current: currentCount,
         limit: limits.activeEventsPerClub
       }

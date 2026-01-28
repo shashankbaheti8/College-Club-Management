@@ -28,9 +28,11 @@ const CLUB_CATEGORIES = [
 
 export default function CreateClubPage() {
   const router = useRouter()
-  const [loading,setLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [checkingLimit, setCheckingLimit] = useState(true)
   const [limitInfo, setLimitInfo] = useState(null)
+  const [users, setUsers] = useState([])
+  const [selectedAdminId, setSelectedAdminId] = useState('')
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -39,7 +41,19 @@ export default function CreateClubPage() {
 
   useEffect(() => {
     checkLimit()
+    fetchUsers()
   }, [])
+
+  async function fetchUsers() {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .eq('is_platform_admin', false)
+      .order('full_name')
+
+    if (data) setUsers(data)
+  }
 
   async function checkLimit() {
     const supabase = createClient()
@@ -54,14 +68,14 @@ export default function CreateClubPage() {
       // Check if user is platform admin
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('is_super_admin')
+        .select('is_platform_admin')
         .eq('id', user.id)
         .single()
 
       if (profileError) throw profileError
 
       // Only platform admins can create clubs
-      if (!profile?.is_super_admin) {
+      if (!profile?.is_platform_admin) {
         toast.error('Only platform administrators can create clubs.')
         router.push('/clubs')
         return
@@ -90,6 +104,11 @@ export default function CreateClubPage() {
       return
     }
 
+    if (!selectedAdminId) {
+      toast.error('Please assign a student as the Club Admin.')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -99,6 +118,23 @@ export default function CreateClubPage() {
       if (!user) {
         toast.error('You must be logged in to create a club')
         router.push('/login')
+        return
+      }
+
+      const adminIdToAssign = selectedAdminId
+
+      // Rule of 3 Check: Check if target admin manages >= 3 clubs
+      const { count: adminClubCount, error: countError } = await supabase
+        .from('club_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', adminIdToAssign)
+        .eq('role', 'admin')
+
+      if (countError) throw countError
+
+      if (adminClubCount >= 3) {
+        toast.error('A user can only be an admin of 3 clubs. Please select another user.')
+        setLoading(false)
         return
       }
 
@@ -115,17 +151,20 @@ export default function CreateClubPage() {
 
       if (clubError) throw clubError
 
-      // Automatically add creator as admin member
+      // Automatically add selected user as admin member
       const { error: memberError } = await supabase
         .from('club_members')
         .insert({
           club_id: club.id,
-          user_id: user.id,
+          user_id: adminIdToAssign,
           role: 'admin'
         })
 
       if (memberError) {
         console.error('Error adding admin member:', memberError)
+        // If assignment fails, rollback club creation
+        await supabase.from('clubs').delete().eq('id', club.id)
+        throw new Error('Failed to assign admin. Club creation cancelled.')
       }
 
       toast.success('Club created successfully!')
@@ -204,6 +243,30 @@ export default function CreateClubPage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="admin">Assign Club Admin *</Label>
+              <Select
+                value={selectedAdminId}
+                onValueChange={setSelectedAdminId}
+                disabled={!limitInfo?.allowed}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a Admin" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name || user.email || 'Unnamed User'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Select the user who will be the admin of this club (Max 3 clubs per admin). Platform Admins are excluded.
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="category">Category *</Label>
               <Select
                 value={formData.category}
@@ -258,8 +321,6 @@ export default function CreateClubPage() {
           </form>
         </CardContent>
       </Card>
-
-
     </div>
   )
 }

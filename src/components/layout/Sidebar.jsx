@@ -11,7 +11,8 @@ import {
   Settings,
   LogOut,
   PlusCircle,
-  Menu
+  Menu,
+  Megaphone
 } from 'lucide-react'
 import {
     Sheet,
@@ -34,7 +35,7 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { logout } from '@/app/auth/actions'
 
-export function Sidebar({ className, user }) {
+export function Sidebar({ className, user, isClubAdmin, isPlatformAdmin }) {
     const pathname = usePathname()
     const [showLogoutDialog, setShowLogoutDialog] = useState(false)
 
@@ -49,16 +50,22 @@ export function Sidebar({ className, user }) {
     }
 
     // Base navigation items
-    const baseNavItems = [
+    let navItems = [
         { name: 'Dashboard', href: '/dashboard', icon: Home },
-        { name: 'My Clubs', href: '/clubs', icon: Users },
+        { name: isPlatformAdmin ? 'Clubs' : 'My Clubs', href: '/clubs', icon: Users },
         { name: 'Events', href: '/events', icon: CalendarDays },
     ]
 
-    // Add Create Club only for platform admins
-    const navItems = user?.is_super_admin 
-        ? [...baseNavItems, { name: 'Create Club', href: '/clubs/create', icon: PlusCircle }]
-        : baseNavItems
+    // Club Admin Links
+    if (isClubAdmin) {
+        // Add specific tools for club admins if needed, currently Dashboard covers it
+        // could add { name: 'Manage Events', href: '/events/manage', ... }
+    }
+
+    // Platform Admin Links
+    if (isPlatformAdmin) {
+        navItems.push({ name: 'Announcements', href: '/announcements', icon: Megaphone })
+    }
 
     return (
         <div className="flex h-full flex-col gap-2">
@@ -128,7 +135,7 @@ export function Sidebar({ className, user }) {
     )
 }
 
-export function MobileSidebar({ user }) {
+export function MobileSidebar({ user, isClubAdmin, isPlatformAdmin }) {
     const pathname = usePathname()
     const [showLogoutDialog, setShowLogoutDialog] = useState(false)
     
@@ -143,16 +150,17 @@ export function MobileSidebar({ user }) {
     }
 
     // Base navigation items
-    const baseNavItems = [
+    let navItems = [
         { name: 'Dashboard', href: '/dashboard', icon: Home },
-        { name: 'My Clubs', href: '/clubs', icon: Users },
+        { name: isPlatformAdmin ? 'Clubs' : 'My Clubs', href: '/clubs', icon: Users },
         { name: 'Events', href: '/events', icon: CalendarDays },
     ]
 
-    // Add Create Club only for platform admins
-    const navItems = user?.is_super_admin 
-        ? [...baseNavItems, { name: 'Create Club', href: '/clubs/create', icon: PlusCircle }]
-        : baseNavItems
+    // Platform Admin Links
+    if (isPlatformAdmin) {
+        navItems.push({ name: 'Announcements', href: '/announcements', icon: Megaphone })
+        navItems.push({ name: 'Create Club', href: '/clubs/create', icon: PlusCircle })
+    }
 
     return (
         <Sheet>

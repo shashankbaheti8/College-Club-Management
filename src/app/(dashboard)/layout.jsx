@@ -18,6 +18,15 @@ export default async function DashboardLayout({ children }) {
     .eq('id', authUser.id)
     .single()
 
+  // Fetch memberships to check for Club Admin role
+  const { data: memberships } = await supabase
+      .from('club_members')
+      .select('role')
+      .eq('user_id', authUser.id)
+
+  const isClubAdmin = memberships?.some(m => m.role === 'admin')
+  const isPlatformAdmin = profile?.is_platform_admin
+
   const user = {
     ...profile,
     email: authUser.email,
@@ -26,13 +35,18 @@ export default async function DashboardLayout({ children }) {
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
-      <div className="hidden border-r bg-muted/40 md:block">
+      <div className="hidden border-r bg-muted/40 md:block sticky top-0 h-screen overflow-y-auto">
          <div className="flex h-full max-h-screen flex-col gap-2">
-             <Sidebar className="border-r-0" user={user} />
+             <Sidebar 
+                className="border-r-0" 
+                user={user} 
+                isClubAdmin={isClubAdmin} 
+                isPlatformAdmin={isPlatformAdmin} 
+              />
          </div>
       </div>
       <div className="flex flex-col">
-        <Header user={user} />
+        <Header user={user} isClubAdmin={isClubAdmin} isPlatformAdmin={isPlatformAdmin} />
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
           {children}
         </main>

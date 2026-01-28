@@ -124,59 +124,7 @@ export default function ClubSettingsPage({ params }) {
     fetchClubData()
   }
 
-  async function handleInvite(e) {
-    e.preventDefault()
-    setInviting(true)
-
-    const supabase = createClient()
-    
-    // Find user by email
-    const { data: userData } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', inviteEmail.trim())
-      .single()
-
-    if (!userData) {
-      toast.error('User not found. They need to sign up first!')
-      setInviting(false)
-      return
-    }
-
-    // Check if already a member
-    const { data: existing } = await supabase
-      .from('club_members')
-      .select('id')
-      .eq('club_id', clubId)
-      .eq('user_id', userData.id)
-      .single()
-
-    if (existing) {
-      toast.error('User is already a member')
-      setInviting(false)
-      return
-    }
-
-    // Add member
-    const { error } = await supabase
-      .from('club_members')
-      .insert({
-        club_id: clubId,
-        user_id: userData.id,
-        role: 'member'
-      })
-
-    if (error) {
-      toast.error('Failed to add member')
-      setInviting(false)
-      return
-    }
-
-    toast.success('Member added successfully!')
-    setInviteEmail('')
-    setInviting(false)
-    fetchClubData()
-  }
+  // handleInvite removed - functionality moved to Club Details page
 
   if (loading) {
     return (
@@ -205,32 +153,7 @@ export default function ClubSettingsPage({ params }) {
         </div>
       </div>
 
-      {/* Invite Members */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Invite Members</CardTitle>
-          <CardDescription>
-            Add new members to your club by their email address
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleInvite} className="flex gap-2">
-            <Input
-              type="email"
-              placeholder="member@example.com"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              required
-              disabled={inviting}
-            />
-            <Button type="submit" disabled={inviting}>
-              {inviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <UserPlus className="mr-2 h-4 w-4" />
-              Invite
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      {/* Invite Members form removed - moved to Club Details */}
 
       {/* Members List */}
       <Card>

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { isPlatformAdmin } from '@/lib/rbac'
 
 export async function createClub(formData) {
   const supabase = await createClient()
@@ -10,7 +11,13 @@ export async function createClub(formData) {
   // Authenticate user
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-      redirect('/login')
+    redirect('/login')
+  }
+
+  // CRITICAL: Check platform admin permission
+  const isAdmin = await isPlatformAdmin(user.id)
+  if (!isAdmin) {
+    throw new Error('Only platform administrators can create clubs')
   }
 
   const name = formData.get('name')
@@ -19,11 +26,11 @@ export async function createClub(formData) {
 
   const { data, error } = await supabase
     .from('clubs')
-    .insert([
-          name, 
-          description, 
-          category
-    ])
+    .insert({
+      name, 
+      description, 
+      category
+    })
     .select()
     .single()
 
@@ -31,25 +38,9 @@ export async function createClub(formData) {
     throw new Error(error.message)
   }
 
-  // Add creator as admin member
-  const { error: memberError } = await supabase
-    .from('club_members')
-    .insert({
-      club_id: data.id,
-      user_id: user.id,
-      role: 'admin'
-    })
+  // NOTE: Platform admin creates club but is NOT added as member
+  // Club admins are added separately via member management
 
-  if (memberError) {
-    console.error('Error adding admin member:', memberError)
-    // Note: We might want to rollback club creation here in a real transaction, 
-    // but for now we log it.
-  }
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  revalidatePath('/dashboard')
-  redirect('/dashboard')
+  revalidatePath('/clubs')
+  redirect(`/clubs/${data.id}`)
 }
