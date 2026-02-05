@@ -49,9 +49,6 @@ export default async function LandingPage() {
             <div className="container px-4 md:px-6 mx-auto">
                 <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
                     <div className="flex-1 text-center lg:text-left space-y-6">
-                        <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary/10 text-primary hover:bg-primary/20">
-                            v2.0 is now live
-                        </div>
                         <h1 className="text-4xl font-extrabold tracking-tight lg:text-6xl xl:text-7xl">
                             Manage your club <br/>
                             <span className="text-primary">like a pro.</span>
