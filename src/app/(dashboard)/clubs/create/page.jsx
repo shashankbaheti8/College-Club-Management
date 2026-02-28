@@ -13,18 +13,8 @@ import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { checkSubscriptionLimit } from '@/app/(dashboard)/actions'
-
-const CLUB_CATEGORIES = [
-  'Technology',
-  'Sports',
-  'Arts',
-  'Music',
-  'Academic',
-  'Social',
-  'Professional',
-  'Community Service',
-  'Other'
-]
+import { createClub } from './actions'
+import { CLUB_CATEGORIES } from '@/lib/constants'
 
 export default function CreateClubPage() {
   const router = useRouter()
@@ -100,7 +90,7 @@ export default function CreateClubPage() {
     e.preventDefault()
     
     if (!limitInfo?.allowed) {
-      toast.error('You have reached your club creation limit. Please upgrade your plan.')
+      toast.error('You have reached your club creation limit.')
       return
     }
 
@@ -112,67 +102,17 @@ export default function CreateClubPage() {
     setLoading(true)
 
     try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-
-      if (!user) {
-        toast.error('You must be logged in to create a club')
-        router.push('/login')
-        return
-      }
-
-      const adminIdToAssign = selectedAdminId
-
-      // Rule of 3 Check: Check if target admin manages >= 3 clubs
-      const { count: adminClubCount, error: countError } = await supabase
-        .from('club_members')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', adminIdToAssign)
-        .eq('role', 'admin')
-
-      if (countError) throw countError
-
-      if (adminClubCount >= 3) {
-        toast.error('A user can only be an admin of 3 clubs. Please select another user.')
-        setLoading(false)
-        return
-      }
-
-      // Create the club
-      const { data: club, error: clubError } = await supabase
-        .from('clubs')
-        .insert({
-          name: formData.name,
-          description: formData.description,
-          category: formData.category
-        })
-        .select()
-        .single()
-
-      if (clubError) throw clubError
-
-      // Automatically add selected user as admin member
-      const { error: memberError } = await supabase
-        .from('club_members')
-        .insert({
-          club_id: club.id,
-          user_id: adminIdToAssign,
-          role: 'admin'
-        })
-
-      if (memberError) {
-        console.error('Error adding admin member:', memberError)
-        // If assignment fails, rollback club creation
-        await supabase.from('clubs').delete().eq('id', club.id)
-        throw new Error('Failed to assign admin. Club creation cancelled.')
-      }
-
-      toast.success('Club created successfully!')
-      router.push(`/clubs/${club.id}`)
+      // Use server action via FormData
+      const serverFormData = new FormData()
+      serverFormData.set('name', formData.name)
+      serverFormData.set('description', formData.description)
+      serverFormData.set('category', formData.category)
+      serverFormData.set('admin_user_id', selectedAdminId)
+      
+      await createClub(serverFormData)
     } catch (error) {
       console.error('Error creating club:', error)
       toast.error(error.message || 'Failed to create club')
-    } finally {
       setLoading(false)
     }
   }
@@ -324,4 +264,3 @@ export default function CreateClubPage() {
     </div>
   )
 }
-

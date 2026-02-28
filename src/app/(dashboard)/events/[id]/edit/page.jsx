@@ -45,7 +45,6 @@ export default function EditEventPage({ params }) {
     }
 
     // Fetch event data
-    // Fetch event data
     const { data: event, error } = await supabase
       .from('events')
       .select('*, clubs(id)')

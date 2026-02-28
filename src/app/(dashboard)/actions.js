@@ -117,34 +117,3 @@ export async function inviteMember(clubId, email) {
 
   revalidatePath(`/clubs/${clubId}`)
 }
-
-export async function removeMember(memberId) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) throw new Error('Unauthorized')
-
-  // Fetch membership to get club_id
-  const { data: membership } = await supabase
-    .from('club_members')
-    .select('club_id, user_id, role')
-    .eq('id', memberId)
-    .single()
-
-  if (!membership) throw new Error('Membership not found')
-
-  // Permission check
-  const canManage = await canManageMembers(user.id, membership.club_id)
-  if (!canManage) throw new Error('Insufficient permissions')
-
-  const { error } = await supabase
-    .from('club_members')
-    .delete()
-    .eq('id', memberId)
-
-  if (error) {
-    throw new Error('Failed to remove member')
-  }
-
-  revalidatePath(`/clubs/${membership.club_id}`)
-}

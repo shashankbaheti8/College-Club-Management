@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
+import { isPlatformAdmin } from '@/lib/rbac'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import CreateAnnouncementModal from "@/components/CreateAnnouncementModal"
 import InviteMemberModal from "@/components/InviteMemberModal"
 import ConfirmButton from "@/components/ui/ConfirmButton"
-import { deleteAnnouncement, removeMember } from '@/app/(dashboard)/actions'
+import { deleteAnnouncement } from '@/app/(dashboard)/actions'
+import { removeMember } from './settings/actions'
 
 export default async function ClubDetailPage({ params }) {
   const { id } = await params
@@ -109,7 +111,6 @@ export default async function ClubDetailPage({ params }) {
   const isMember = !!membership
   
   // Check platform admin for super-access
-  const { isPlatformAdmin } = await import('@/lib/rbac')
   const isPlatform = await isPlatformAdmin(user.id)
   
   const isAdmin = userRole === 'admin' || isPlatform
@@ -350,7 +351,7 @@ export default async function ClubDetailPage({ params }) {
                           className="h-6 w-6 text-destructive hover:bg-destructive/10"
                           onConfirm={async () => {
                             'use server'
-                            await removeMember(member.id)
+                            await removeMember(id, member.id)
                           }}
                         >
                           <Trash2 className="h-3.5 w-3.5" />

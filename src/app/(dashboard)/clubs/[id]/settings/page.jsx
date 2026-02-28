@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Loader2, UserPlus, UserMinus, Shield } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
+import { updateMemberRole, removeMember } from './actions'
 
 export default function ClubSettingsPage({ params }) {
   const router = useRouter()
@@ -87,20 +88,13 @@ export default function ClubSettingsPage({ params }) {
   }
 
   async function handleRoleChange(memberId, newRole) {
-    const supabase = createClient()
-    
-    const { error } = await supabase
-      .from('club_members')
-      .update({ role: newRole })
-      .eq('id', memberId)
-
-    if (error) {
-      toast.error('Failed to update role')
-      return
+    try {
+      await updateMemberRole(clubId, memberId, newRole)
+      toast.success('Member role updated!')
+      fetchClubData()
+    } catch (error) {
+      toast.error(error.message || 'Failed to update role')
     }
-
-    toast.success('Member role updated!')
-    fetchClubData()
   }
 
   async function handleRemoveMember(memberId) {
@@ -108,20 +102,13 @@ export default function ClubSettingsPage({ params }) {
       return
     }
 
-    const supabase = createClient()
-    
-    const { error } = await supabase
-      .from('club_members')
-      .delete()
-      .eq('id', memberId)
-
-    if (error) {
-      toast.error('Failed to remove member')
-      return
+    try {
+      await removeMember(clubId, memberId)
+      toast.success('Member removed from club')
+      fetchClubData()
+    } catch (error) {
+      toast.error(error.message || 'Failed to remove member')
     }
-
-    toast.success('Member removed from club')
-    fetchClubData()
   }
 
   // handleInvite removed - functionality moved to Club Details page

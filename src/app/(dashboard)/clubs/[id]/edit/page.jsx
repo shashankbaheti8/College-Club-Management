@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Loader2, Building2 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
+import { CLUB_CATEGORIES } from '@/lib/constants'
 
 export default function EditClubPage({ params }) {
   const router = useRouter()
@@ -165,13 +166,11 @@ export default function EditClubPage({ params }) {
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="academic">Academic</SelectItem>
-                  <SelectItem value="sports">Sports</SelectItem>
-                  <SelectItem value="arts">Arts & Culture</SelectItem>
-                  <SelectItem value="technology">Technology</SelectItem>
-                  <SelectItem value="social">Social</SelectItem>
-                  <SelectItem value="service">Community Service</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {CLUB_CATEGORIES.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

@@ -3,11 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { GraduationCap, Users } from 'lucide-react'
+import { isPlatformAdmin } from '@/lib/rbac'
 
 export default async function ClubsPage() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    const { isPlatformAdmin } = await import('@/lib/rbac')
     const isPlatform = user ? await isPlatformAdmin(user.id) : false
     
     // Fetch all clubs

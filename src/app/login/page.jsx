@@ -58,7 +58,7 @@ function LoginForm() {
         <Card className="w-full max-w-sm mx-auto shadow-none border-0 bg-transparent">
             <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
             <div className="flex flex-col space-y-2 text-center">
-              <h1 className="text-2xl font-semibold tracking-tight text-black">
+              <h1 className="text-2xl font-semibold tracking-tight">
                 Welcome back
               </h1>
               <p className="text-sm text-muted-foreground">
@@ -67,7 +67,7 @@ function LoginForm() {
             </div>
             <form action={login} className='grid gap-6 login-form'>
                 <div className="grid gap-2">
-                    <Label htmlFor="email" className="text-black">Email</Label>
+                    <Label htmlFor="email">Email</Label>
                     <Input
                         id="email"
                         name="email"
@@ -76,22 +76,22 @@ function LoginForm() {
                         autoCapitalize="none"
                         autoComplete="email"
                         autoCorrect="off"
-                        className="border-black text-black"
+                        className="border-input"
                         required
                     />
                 </div>
                 <div className="grid gap-2">
-                    <Label htmlFor="password" className="text-black">Password</Label>
+                    <Label htmlFor="password">Password</Label>
                     <Input
                         id="password"
                         name="password"
                         type="password"
-                        className="border-black text-black"
+                        className="border-input"
                         placeholder='password'
                         required
                     />
                 </div>
-                <Button className="w-full bg-black text-white hover:bg-zinc-800">Sign In with Email</Button>
+                <Button className="w-full">Sign In with Email</Button>
             </form>
             
             <p className="px-8 text-center text-sm text-muted-foreground">
@@ -107,8 +107,8 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div className="w-full min-h-screen flex items-center justify-center bg-background md:grid md:grid-cols-2 lg:px-0">
-      <div className="relative hidden h-full flex-col p-10 text-white lg:flex">
-        <div className="absolute inset-0 bg-black" />
+      <div className="relative hidden h-full flex-col p-10 text-primary-foreground lg:flex">
+        <div className="absolute inset-0 bg-primary" />
         <div className="relative z-20 flex items-center text-lg font-medium">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -127,15 +127,15 @@ export default function LoginPage() {
         <div className="relative z-20 mt-auto">
           <blockquote className="space-y-2">
             <p className="text-lg">
-              &ldquo;This library has saved me countless hours of work and
-              helped me deliver stunning designs to my clients faster than
-              ever before.&rdquo;
+              &ldquo;UniClub has transformed how we manage our campus
+              communities — from events to members, everything is
+              seamless.&rdquo;
             </p>
-            <footer className="text-sm">Sofia Davis</footer>
+            <footer className="text-sm">Campus Activities Board</footer>
           </blockquote>
         </div>
       </div>
-      <div className="p-4 lg:p-8 h-full flex items-center justify-center bg-white text-black">
+      <div className="p-4 lg:p-8 h-full flex items-center justify-center">
         <Suspense fallback={<div className="flex justify-center"><Loader2 className="animate-spin" /></div>}>
             <LoginForm />
         </Suspense>

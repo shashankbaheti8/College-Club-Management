@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { CalendarDays, MapPin } from "lucide-react"
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { isPlatformAdmin } from '@/lib/rbac'
 
 export default async function EventsPage() {
   const supabase = await createClient()
@@ -14,7 +15,6 @@ export default async function EventsPage() {
 
   if (user) {
       // Check platform admin
-      const { isPlatformAdmin } = await import('@/lib/rbac')
       isPlatform = await isPlatformAdmin(user.id)
 
       // Fetch my clubs (admin or member)

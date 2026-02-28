@@ -86,8 +86,21 @@ export default async function EventDetailPage({ params }) {
                   'use server'
                   const supabase = await createClient()
                   const { data: { user } } = await supabase.auth.getUser()
-                  // Double check permissions (simple check since DB policies likely enforce too)
-                  // But good practice is strict checking.
+                  if (!user) return
+
+                  // RBAC re-check: must be platform admin or club admin
+                  const isPlatform = await isPlatformAdmin(user.id)
+                  if (!isPlatform) {
+                    const { data: mem } = await supabase
+                      .from('club_members')
+                      .select('role')
+                      .eq('club_id', event.club_id)
+                      .eq('user_id', user.id)
+                      .eq('role', 'admin')
+                      .single()
+                    if (!mem) return
+                  }
+
                   await supabase.from('events').delete().eq('id', id)
                   redirect(`/clubs/${event.club_id}`)
                 }}

@@ -87,11 +87,11 @@ function SignupForm() {
                         required
                     />
                 </div>
-                <Button className="w-full bg-white text-black hover:bg-zinc-200">Sign Up with Email</Button>
+                <Button className="w-full">Sign Up with Email</Button>
             </form>
            
             <p className="px-8 text-center text-sm text-muted-foreground">
-              <Link href="/login" className="hover:text-zinc-300 underline underline-offset-4">
+              <Link href="/login" className="hover:text-muted-foreground/80 underline underline-offset-4">
                 Already have an account? Sign In
               </Link>
             </p>
@@ -103,8 +103,8 @@ function SignupForm() {
 export default function SignupPage() {
   return (
     <div className="w-full min-h-screen flex items-center justify-center bg-background md:grid md:grid-cols-2 lg:px-0">
-      <div className="relative hidden h-full flex-col p-10 text-black lg:flex border-r">
-        <div className="absolute inset-0 bg-white" /> {/* White background */}
+      <div className="relative hidden h-full flex-col p-10 lg:flex border-r">
+        <div className="absolute inset-0 bg-muted" /> {/* Theme-aware background */}
         <div className="relative z-20 flex items-center text-lg font-medium">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -128,7 +128,7 @@ export default function SignupPage() {
           </blockquote>
         </div>
       </div>
-      <div className="p-4 lg:p-8 h-full flex items-center justify-center bg-black text-white">
+      <div className="p-4 lg:p-8 h-full flex items-center justify-center">
         <Suspense fallback={<div className="flex justify-center"><Loader2 className="animate-spin" /></div>}>
             <SignupForm />
         </Suspense>

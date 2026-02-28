@@ -1,4 +1,5 @@
 import { createClient } from './supabase/server'
+import { APP_LIMITS } from './subscription'
 
 /**
  * RBAC Utility Functions for UniClub Platform
@@ -148,10 +149,7 @@ export async function canCreateAnnouncement(userId, clubId = null) {
  * @returns {Promise<boolean>}
  */
 export async function canManageMembers(userId, clubId) {
-  const isAdmin = await isPlatformAdmin(userId)
-  if (isAdmin) return true
-  
-  return await isClubAdmin(userId, clubId)
+  return await canManageClub(userId, clubId)
 }
 
 /**
@@ -172,9 +170,9 @@ export async function checkAdminRoleCap(userId) {
   }
   
   return {
-    allowed: (count || 0) < 3,
+    allowed: (count || 0) < APP_LIMITS.clubs,
     current: count || 0,
-    limit: 3
+    limit: APP_LIMITS.clubs
   }
 }
 
@@ -195,8 +193,8 @@ export async function checkClubCapacity(clubId) {
   }
   
   return {
-    allowed: (count || 0) < 25,
+    allowed: (count || 0) < APP_LIMITS.membersPerClub,
     current: count || 0,
-    limit: 25
+    limit: APP_LIMITS.membersPerClub
   }
 }

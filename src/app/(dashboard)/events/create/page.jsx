@@ -13,6 +13,7 @@ import { ArrowLeft, Loader2, Calendar } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { checkSubscriptionLimit } from '@/app/(dashboard)/actions'
+import { createEvent } from './actions'
 
 export default function CreateEventPage() {
   const router = useRouter()
@@ -71,7 +72,7 @@ export default function CreateEventPage() {
     e.preventDefault()
     
     if (limitInfo && !limitInfo.allowed) {
-      toast.error('This club has reached its active event limit. Please delete old events or upgrade.')
+      toast.error('This club has reached its active event limit.')
       return
     }
 
@@ -83,41 +84,20 @@ export default function CreateEventPage() {
     setLoading(true)
 
     try {
-      const supabase = createClient()
-      
-      // Combine date and time
-      const eventDateTime = new Date(`${formData.date}T${formData.time}`)
+      // Use server action via FormData
+      const serverFormData = new FormData()
+      serverFormData.set('title', formData.title)
+      serverFormData.set('description', formData.description)
+      serverFormData.set('date', formData.date)
+      serverFormData.set('time', formData.time)
+      serverFormData.set('location', formData.location)
+      serverFormData.set('club_id', formData.club_id)
+      serverFormData.set('visibility', formData.visibility)
 
-      // Validate date is not in the past
-      if (eventDateTime < new Date()) {
-        toast.error('Event date and time cannot be in the past')
-        setLoading(false)
-        return
-      }
-
-      // Create the event
-      const { data: event, error } = await supabase
-        .from('events')
-        .insert({
-          title: formData.title,
-          description: formData.description,
-          date: eventDateTime.toISOString(),
-          location: formData.location || null,
-          club_id: formData.club_id,
-          visibility: formData.visibility,
-          status: 'upcoming'
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      toast.success('Event created successfully!')
-      router.push(`/events/${event.id}`)
+      await createEvent(serverFormData)
     } catch (error) {
       console.error('Error creating event:', error)
       toast.error(error.message || 'Failed to create event')
-    } finally {
       setLoading(false)
     }
   }
