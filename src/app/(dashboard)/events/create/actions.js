@@ -22,9 +22,30 @@ export async function createEvent(formData) {
   const location = formData.get('location')
   const club_id = formData.get('club_id')
   const visibility = formData.get('visibility') || 'public'
+  const coordinatorIdsRaw = formData.get('coordinator_ids')
 
   if (!title || !description || !date || !time || !club_id) {
     throw new Error('All required fields must be filled')
+  }
+
+  // Parse and validate coordinator IDs
+  const coordinatorIds = coordinatorIdsRaw ? coordinatorIdsRaw.split(',').filter(Boolean) : []
+  if (coordinatorIds.length === 0) {
+    throw new Error('At least 1 event coordinator is required')
+  }
+  if (coordinatorIds.length > 2) {
+    throw new Error('Maximum 2 event coordinators allowed')
+  }
+
+  // Validate coordinators are members of the club
+  const { data: validMembers } = await supabase
+    .from('club_members')
+    .select('user_id')
+    .eq('club_id', club_id)
+    .in('user_id', coordinatorIds)
+
+  if (!validMembers || validMembers.length !== coordinatorIds.length) {
+    throw new Error('All coordinators must be members of the selected club')
   }
 
   // Check permission: must be admin of this club
@@ -62,6 +83,22 @@ export async function createEvent(formData) {
 
   if (error) {
     throw new Error(error.message)
+  }
+
+  // Insert coordinators
+  const coordinatorRows = coordinatorIds.map(userId => ({
+    event_id: data.id,
+    user_id: userId,
+  }))
+
+  const { error: coordError } = await supabase
+    .from('event_coordinators')
+    .insert(coordinatorRows)
+
+  if (coordError) {
+    // Rollback event if coordinator insert fails
+    await supabase.from('events').delete().eq('id', data.id)
+    throw new Error('Failed to assign coordinators. Event creation cancelled.')
   }
 
   revalidatePath('/events')

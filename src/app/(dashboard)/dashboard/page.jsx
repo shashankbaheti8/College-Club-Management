@@ -19,9 +19,9 @@ export default async function DashboardPage() {
 
   if (isPlatform) {
     // Fetch global stats for platform admin
-    const [clubsResult, membersResult, eventsResult, upcomingResult, announcementsResult] = await Promise.all([
+    const [clubsResult, usersResult, eventsResult, upcomingResult, announcementsResult] = await Promise.all([
       supabase.from('clubs').select('*', { count: 'exact', head: true }),
-      supabase.from('club_members').select('*', { count: 'exact', head: true }),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }),
       supabase.from('events').select('*', { count: 'exact', head: true }).in('status', ['upcoming', 'ongoing']),
       supabase.from('events')
         .select(`*, clubs (name)`)
@@ -38,7 +38,7 @@ export default async function DashboardPage() {
 
     const stats = {
       totalClubs: clubsResult.count || 0,
-      totalMembers: membersResult.count || 0,
+      totalMembers: usersResult.count || 0,
       activeEventCount: eventsResult.count || 0,
       upcomingEvents: upcomingResult.data || [],
       globalAnnouncements: announcementsResult.data || []
@@ -75,8 +75,8 @@ export default async function DashboardPage() {
   
   // Common stats for Member/ClubAdmin
   const [membersResult, eventsResult, upcomingResult] = await Promise.all([
-    // Total members (meaningful for admins, maybe unnecessary for plain members but good for context)
-    supabase.from('club_members').select('*', { count: 'exact', head: true }).in('club_id', clubIds),
+    // Fetch unique members across all user's clubs
+    supabase.from('club_members').select('user_id').in('club_id', clubIds),
     
     // Active events
     supabase.from('events').select('*', { count: 'exact', head: true }).in('club_id', clubIds).in('status', ['upcoming', 'ongoing']),
@@ -91,8 +91,11 @@ export default async function DashboardPage() {
       .limit(5)
   ])
 
+  // Deduplicate members across clubs
+  const uniqueMembers = new Set((membersResult.data || []).map(m => m.user_id))
+
   const stats = {
-    totalMembers: membersResult.count || 0,
+    totalMembers: uniqueMembers.size,
     activeEventCount: eventsResult.count || 0,
     upcomingEvents: upcomingResult.data || []
   }

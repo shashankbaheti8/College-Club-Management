@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Users, CalendarDays, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 
 export function PlatformAdminDashboard({ stats }) {
   const { totalClubs, totalMembers, activeEventCount, upcomingEvents, globalAnnouncements } = stats
@@ -116,8 +117,15 @@ export function PlatformAdminDashboard({ stats }) {
                         </div>
                         </div>
                         <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold truncate">{event.title}</h4>
-                        <p className="text-sm text-muted-foreground">{event.clubs?.name}</p>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold truncate">{event.title}</h4>
+                            {event.visibility && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize text-muted-foreground">
+                                {event.visibility}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{event.clubs?.name}</p>
                         </div>
                     </div>
                     </Link>

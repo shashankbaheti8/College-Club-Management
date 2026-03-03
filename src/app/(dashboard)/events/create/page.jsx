@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ArrowLeft, Loader2, Calendar } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -21,6 +23,8 @@ export default function CreateEventPage() {
   const [loadingData, setLoadingData] = useState(true)
   const [myAdminClubs, setMyAdminClubs] = useState([])
   const [limitInfo, setLimitInfo] = useState(null)
+  const [clubMembers, setClubMembers] = useState([])
+  const [selectedCoordinators, setSelectedCoordinators] = useState([])
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -56,6 +60,43 @@ export default function CreateEventPage() {
     setLoadingData(false)
   }
 
+  async function fetchClubMembers(clubId) {
+    const supabase = createClient()
+
+    // Step 1: Get member user_ids and roles
+    const { data: memberRows, error: memErr } = await supabase
+      .from('club_members')
+      .select('user_id, role')
+      .eq('club_id', clubId)
+      .order('joined_at', { ascending: true })
+
+    if (memErr || !memberRows?.length) {
+      if (memErr) console.error('Error fetching club members:', memErr)
+      setClubMembers([])
+      setSelectedCoordinators([])
+      return
+    }
+
+    // Step 2: Fetch profiles for those user_ids
+    const userIds = memberRows.map(m => m.user_id)
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .in('id', userIds)
+
+    // Merge profiles into member rows
+    const profileMap = {}
+    profiles?.forEach(p => { profileMap[p.id] = p })
+
+    const merged = memberRows.map(m => ({
+      ...m,
+      profiles: profileMap[m.user_id] || null,
+    }))
+
+    setClubMembers(merged)
+    setSelectedCoordinators([])
+  }
+
   const handleClubChange = async (clubId) => {
     setFormData({ ...formData, club_id: clubId })
     
@@ -66,6 +107,22 @@ export default function CreateEventPage() {
     if (!limit.allowed) {
       toast.error(`This club has reached its event limit (${limit.current}/${limit.limit}).`)
     }
+
+    // Fetch members for coordinator selection
+    await fetchClubMembers(clubId)
+  }
+
+  const toggleCoordinator = (userId) => {
+    setSelectedCoordinators(prev => {
+      if (prev.includes(userId)) {
+        return prev.filter(id => id !== userId)
+      }
+      if (prev.length >= 2) {
+        toast.error('Maximum 2 coordinators allowed')
+        return prev
+      }
+      return [...prev, userId]
+    })
   }
 
   const handleSubmit = async (e) => {
@@ -81,6 +138,11 @@ export default function CreateEventPage() {
       return
     }
 
+    if (selectedCoordinators.length === 0) {
+      toast.error('Please select at least 1 event coordinator')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -93,6 +155,7 @@ export default function CreateEventPage() {
       serverFormData.set('location', formData.location)
       serverFormData.set('club_id', formData.club_id)
       serverFormData.set('visibility', formData.visibility)
+      serverFormData.set('coordinator_ids', selectedCoordinators.join(','))
 
       await createEvent(serverFormData)
     } catch (error) {
@@ -269,6 +332,54 @@ export default function CreateEventPage() {
                 </Select>
             </div>
 
+            {/* Coordinator Selection — always visible, disabled until club selected */}
+            <div className="space-y-3">
+              <div>
+                <Label>Event Coordinators * <span className="text-muted-foreground font-normal">(min 1, max 2)</span></Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formData.club_id ? 'Select club members who will coordinate this event' : 'Select a club first to choose coordinators'}
+                </p>
+              </div>
+              {clubMembers.length > 0 ? (
+                <div className="border rounded-lg divide-y">
+                  {clubMembers.map((member) => {
+                    const isSelected = selectedCoordinators.includes(member.user_id)
+                    return (
+                      <label
+                        key={member.user_id}
+                        className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
+                          isSelected ? 'bg-primary/5' : ''
+                        }`}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleCoordinator(member.user_id)}
+                          disabled={!isSelected && selectedCoordinators.length >= 2}
+                        />
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={member.profiles?.avatar_url} />
+                          <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                            {member.profiles?.full_name?.substring(0, 2).toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium">{member.profiles?.full_name || 'Unknown'}</span>
+                        {member.role === 'admin' && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">Admin</span>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="border rounded-lg p-4 text-center text-sm text-muted-foreground opacity-60">
+                  {formData.club_id ? 'No members found' : 'Select a club above to see available coordinators'}
+                </div>
+              )}
+              {formData.club_id && selectedCoordinators.length === 0 && (
+                <p className="text-xs text-destructive">Please select at least 1 coordinator</p>
+              )}
+            </div>
+
             <div className="flex gap-4">
               <Link href="/events" className="flex-1">
                 <Button type="button" variant="outline" className="w-full">
@@ -278,7 +389,7 @@ export default function CreateEventPage() {
               <Button 
                 type="submit" 
                 className="flex-1" 
-                disabled={loading || myAdminClubs.length === 0 || !limitInfo?.allowed}
+                disabled={loading || myAdminClubs.length === 0 || !limitInfo?.allowed || selectedCoordinators.length === 0}
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Calendar className="mr-2 h-4 w-4" />

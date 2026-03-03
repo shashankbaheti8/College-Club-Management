@@ -61,7 +61,14 @@ export default async function ClubsPage() {
             )}
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {clubs?.map((club) => {
+                {clubs
+                ?.slice()
+                .sort((a, b) => {
+                    const aIsMember = userClubIds.includes(a.id) ? 0 : 1
+                    const bIsMember = userClubIds.includes(b.id) ? 0 : 1
+                    return aIsMember - bIsMember
+                })
+                .map((club) => {
                     const isMember = userClubIds.includes(club.id)
                     const admins = club.club_members?.filter(m => m.role === 'admin')
                                     const adminNames = admins?.map(a => a.profiles?.full_name).join(', ') || 'Club Admins'

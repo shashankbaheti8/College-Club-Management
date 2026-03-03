@@ -105,3 +105,35 @@ export async function updateProfile(formData) {
   revalidatePath('/settings/profile')
   return { success: true }
 }
+
+export async function sendPasswordResetEmail(formData) {
+  const supabase = await createClient()
+
+  const email = String(formData.get('email')).trim()
+
+  if (!email) {
+    return { error: 'Please enter your email address.' }
+  }
+
+  // Check if a user with this email exists in the profiles table
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', email)
+    .single()
+
+  if (profileError || !profile) {
+    return { error: 'No account found with this email address.' }
+  }
+
+  // User exists — send the reset email
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback?next=/reset-password`,
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { success: true }
+}

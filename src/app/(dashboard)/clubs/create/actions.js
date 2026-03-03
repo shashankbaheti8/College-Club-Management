@@ -36,6 +36,12 @@ export async function createClub(formData) {
     throw new Error(`Club creation limit reached (${limitCheck.current}/${limitCheck.limit})`)
   }
 
+  // Platform admins cannot be club members/admins
+  const isSelectedPlatformAdmin = await isPlatformAdmin(adminUserId)
+  if (isSelectedPlatformAdmin) {
+    throw new Error('Platform admins cannot be assigned as club admins')
+  }
+
   // Rule of 3 check: can this user be admin of another club?
   const adminCapCheck = await checkAdminRoleCap(adminUserId)
   if (!adminCapCheck.allowed) {

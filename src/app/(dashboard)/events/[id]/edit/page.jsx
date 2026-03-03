@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ArrowLeft, Loader2, Calendar } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -21,6 +23,8 @@ export default function EditEventPage({ params }) {
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [clubMembers, setClubMembers] = useState([])
+  const [selectedCoordinators, setSelectedCoordinators] = useState([])
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -89,11 +93,61 @@ export default function EditEventPage({ params }) {
       visibility: event.visibility || 'public'
     })
 
+    // Fetch club members for coordinator selection (two-step to avoid FK ambiguity)
+    const { data: memberRows } = await supabase
+      .from('club_members')
+      .select('user_id, role')
+      .eq('club_id', event.club_id)
+      .order('joined_at', { ascending: true })
+
+    if (memberRows?.length) {
+      const userIds = memberRows.map(m => m.user_id)
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', userIds)
+
+      const profileMap = {}
+      profiles?.forEach(p => { profileMap[p.id] = p })
+
+      setClubMembers(memberRows.map(m => ({
+        ...m,
+        profiles: profileMap[m.user_id] || null,
+      })))
+    }
+
+    // Fetch existing coordinators
+    const { data: existingCoords } = await supabase
+      .from('event_coordinators')
+      .select('user_id')
+      .eq('event_id', eventId)
+
+    setSelectedCoordinators(existingCoords?.map(c => c.user_id) || [])
+
     setLoadingData(false)
+  }
+
+  const toggleCoordinator = (userId) => {
+    setSelectedCoordinators(prev => {
+      if (prev.includes(userId)) {
+        return prev.filter(id => id !== userId)
+      }
+      if (prev.length >= 2) {
+        toast.error('Maximum 2 coordinators allowed')
+        return prev
+      }
+      return [...prev, userId]
+    })
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
+
+    if (selectedCoordinators.length === 0) {
+      toast.error('Please select at least 1 event coordinator')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -122,6 +176,23 @@ export default function EditEventPage({ params }) {
         .eq('id', eventId)
 
       if (error) throw error
+
+      // Update coordinators: delete old, insert new
+      await supabase
+        .from('event_coordinators')
+        .delete()
+        .eq('event_id', eventId)
+
+      const coordinatorRows = selectedCoordinators.map(userId => ({
+        event_id: eventId,
+        user_id: userId,
+      }))
+
+      const { error: coordError } = await supabase
+        .from('event_coordinators')
+        .insert(coordinatorRows)
+
+      if (coordError) throw coordError
 
       toast.success('Event updated successfully!')
       router.push(`/events/${eventId}`)
@@ -249,13 +320,57 @@ export default function EditEventPage({ params }) {
                 </Select>
             </div>
 
+            {/* Coordinator Selection */}
+            {clubMembers.length > 0 && (
+              <div className="space-y-3">
+                <div>
+                  <Label>Event Coordinators * <span className="text-muted-foreground font-normal">(min 1, max 2)</span></Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Select club members who will coordinate this event
+                  </p>
+                </div>
+                <div className="border rounded-lg divide-y">
+                  {clubMembers.map((member) => {
+                    const isSelected = selectedCoordinators.includes(member.user_id)
+                    return (
+                      <label
+                        key={member.user_id}
+                        className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
+                          isSelected ? 'bg-primary/5' : ''
+                        }`}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleCoordinator(member.user_id)}
+                          disabled={loading || (!isSelected && selectedCoordinators.length >= 2)}
+                        />
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={member.profiles?.avatar_url} />
+                          <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                            {member.profiles?.full_name?.substring(0, 2).toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium">{member.profiles?.full_name || 'Unknown'}</span>
+                        {member.role === 'admin' && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">Admin</span>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+                {selectedCoordinators.length === 0 && (
+                  <p className="text-xs text-destructive">Please select at least 1 coordinator</p>
+                )}
+              </div>
+            )}
+
             <div className="flex gap-4">
               <Link href={`/events/${eventId}`} className="flex-1">
                 <Button type="button" variant="outline" className="w-full">
                   Cancel
                 </Button>
               </Link>
-              <Button type="submit" className="flex-1" disabled={loading}>
+              <Button type="submit" className="flex-1" disabled={loading || selectedCoordinators.length === 0}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Calendar className="mr-2 h-4 w-4" />
                 Update Event

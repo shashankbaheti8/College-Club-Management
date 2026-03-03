@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Users, Calendar, Settings, ArrowLeft, UserPlus, Trash2 } from "lucide-react"
+import { Users, Calendar, Settings, ArrowLeft, UserPlus, Trash2, CalendarDays, Building } from "lucide-react"
+import { getEventStatus } from '@/lib/eventUtils'
 import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import CreateAnnouncementModal from "@/components/CreateAnnouncementModal"
@@ -69,15 +70,12 @@ export default async function ClubDetailPage({ params }) {
       .eq('club_id', id)
       .order('joined_at', { ascending: true }),
 
-    // Fetch upcoming events
+    // Fetch ALL events for this club
     supabase
       .from('events')
       .select('*')
       .eq('club_id', id)
-      .eq('status', 'upcoming')
-      .gte('date', new Date().toISOString())
-      .order('date', { ascending: true })
-      .limit(5),
+      .order('date', { ascending: true }),
 
     // Fetch announcements
     supabase
@@ -91,14 +89,23 @@ export default async function ClubDetailPage({ params }) {
       .limit(5)
   ])
 
-  const [membershipResult, adminResult, membersResult, eventsResult, announcementsResult] = results
-  
-  // Destructure data
-  const membership = membershipResult.data
-  const clubAdmins = adminResult.data
-  const members = membersResult.data
-  const upcomingEvents = eventsResult.data
+  // Filter events based on visibility and user role
+  const isPlatform = await isPlatformAdmin(user.id)
+  const isMember = !!membership
+  const isAdmin = membership?.role === 'admin' || isPlatform
+  const canViewAnnouncements = isMember || isAdmin
+  const canViewMembers = isMember || isAdmin
+
+  const allClubEvents = (eventsResult.data || []).filter(e => {
+    if (isPlatform || isMember) return true
+    return e.visibility === 'public'
+  })
+
+  const upcomingEvents = allClubEvents.filter(e => getEventStatus(e.date) === 'upcoming')
+  const ongoingEvents = allClubEvents.filter(e => getEventStatus(e.date) === 'ongoing')
+  const completedEvents = allClubEvents.filter(e => getEventStatus(e.date) === 'completed').reverse()
   const announcements = announcementsResult.data
+
 
   // Debug Errors
   const errors = results.filter(r => r.error).map(r => r.error.message)
@@ -106,17 +113,8 @@ export default async function ClubDetailPage({ params }) {
       console.error("Club Details Fetch Errors:", errors)
   }
 
-  // Define role helpers
+  // Define userRole specifically for the view
   const userRole = membership?.role
-  const isMember = !!membership
-  
-  // Check platform admin for super-access
-  const isPlatform = await isPlatformAdmin(user.id)
-  
-  const isAdmin = userRole === 'admin' || isPlatform
-  const canViewAnnouncements = isMember || isAdmin
-  const canViewMembers = isMember || isAdmin
-
 
   return (
     <div className="space-y-6">
@@ -323,7 +321,16 @@ export default async function ClubDetailPage({ params }) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {members?.map((member) => (
+                {members
+                  ?.slice()
+                  .sort((a, b) => {
+                    // Admin first
+                    if (a.role === 'admin' && b.role !== 'admin') return -1
+                    if (a.role !== 'admin' && b.role === 'admin') return 1
+                    // Then alphabetically by name
+                    return (a.profiles?.full_name || '').localeCompare(b.profiles?.full_name || '')
+                  })
+                  .map((member) => (
                   <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
                       <Avatar>
@@ -332,16 +339,18 @@ export default async function ClubDetailPage({ params }) {
                           {member.profiles?.full_name?.substring(0, 2).toUpperCase() || 'U'}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
+                      <div className="flex items-center gap-2">
                         <p className="font-medium">{member.profiles?.full_name || 'Unknown'}</p>
-                        <p className="text-sm text-muted-foreground capitalize">{member.role}</p>
+                        {member.role === 'admin' && (
+                          <Badge variant="default" className="text-xs">Admin</Badge>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-xs text-muted-foreground">
                         Joined {new Date(member.joined_at).toLocaleDateString()}
                       </div>
-                      {isAdmin && (
+                      {isAdmin && member.role !== 'admin' && (
                         <ConfirmButton
                           title="Remove Member"
                           description="Are you sure you want to remove this member from the club?"
@@ -367,50 +376,100 @@ export default async function ClubDetailPage({ params }) {
         )}
 
         <TabsContent value="events" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>All Events</CardTitle>
-                {isAdmin && (
-                  <Link href="/events/create">
-                    <Button size="sm">Create Event</Button>
-                  </Link>
+          <div className="flex items-center justify-between">
+            <div />
+            {isAdmin && (
+              <Link href="/events/create">
+                <Button size="sm">Create Event</Button>
+              </Link>
+            )}
+          </div>
+
+          <Tabs defaultValue="upcoming" className="w-full">
+            <TabsList>
+              <TabsTrigger value="upcoming">
+                Upcoming {upcomingEvents.length > 0 && <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">{upcomingEvents.length}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value="ongoing">
+                Ongoing {ongoingEvents.length > 0 && <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">{ongoingEvents.length}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value="completed">
+                Completed {completedEvents.length > 0 && <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">{completedEvents.length}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value="all">
+                All {allClubEvents.length > 0 && <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">{allClubEvents.length}</Badge>}
+              </TabsTrigger>
+            </TabsList>
+
+            {[['upcoming', upcomingEvents], ['ongoing', ongoingEvents], ['completed', completedEvents], ['all', allClubEvents]].map(([key, list]) => (
+              <TabsContent key={key} value={key} className="mt-4">
+                {list.length > 0 ? (
+                  <div className="space-y-3">
+                    {list.map((event) => {
+                      const status = getEventStatus(event.date)
+                      return (
+                        <Link
+                          key={event.id}
+                          href={`/events/${event.id}`}
+                          className="flex items-start gap-4 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="bg-primary/10 p-2 rounded text-center min-w-[3rem]">
+                            <div className="text-xs font-bold uppercase text-muted-foreground">
+                              {new Date(event.date).toLocaleDateString('en-US', { month: 'short' })}
+                            </div>
+                            <div className="text-lg font-bold">
+                              {new Date(event.date).getDate()}
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex flex-col gap-1 pr-2">
+                              <h4 className="font-semibold text-base leading-tight">{event.title}</h4>
+                              
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                                <Building className="h-3.5 w-3.5 shrink-0" />
+                                <span className="font-medium truncate">{club.name}</span>
+                              </div>
+
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {key === 'all' && (
+                                  <Badge
+                                    variant={status === 'upcoming' ? 'outline' : status === 'ongoing' ? 'default' : 'secondary'}
+                                    className={`text-[10px] px-1.5 py-0 ${
+                                      status === 'upcoming' ? 'border-green-500 text-green-600' :
+                                      status === 'ongoing' ? 'bg-blue-500 animate-pulse' :
+                                      'text-muted-foreground'
+                                    }`}
+                                  >
+                                    {status === 'upcoming' ? 'Upcoming' : status === 'ongoing' ? 'Ongoing' : 'Completed'}
+                                  </Badge>
+                                )}
+                                {event.visibility && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize text-muted-foreground">
+                                    {event.visibility}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-sm text-muted-foreground line-clamp-1">
+                              {event.description}
+                            </p>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                              <span>{new Date(event.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                              {event.location && <span>📍 {event.location}</span>}
+                            </div>
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No {key === 'all' ? '' : key} events
+                  </p>
                 )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {upcomingEvents && upcomingEvents.length > 0 ? (
-                <div className="space-y-3">
-                  {upcomingEvents.map((event) => (
-                    <Link 
-                      key={event.id} 
-                      href={`/events/${event.id}`}
-                      className="flex items-start gap-4 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="bg-primary/10 p-2 rounded text-center min-w-[3rem]">
-                        <div className="text-xs font-bold uppercase text-muted-foreground">
-                          {new Date(event.date).toLocaleDateString('en-US', { month: 'short' })}
-                        </div>
-                        <div className="text-lg font-bold">
-                          {new Date(event.date).getDate()}
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold">{event.title}</h4>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {event.description}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  No events yet
-                </p>
-              )}
-            </CardContent>
-          </Card>
+              </TabsContent>
+            ))}
+          </Tabs>
         </TabsContent>
 
         {canViewAnnouncements && (

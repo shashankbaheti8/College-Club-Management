@@ -52,7 +52,7 @@ export function Sidebar({ className, user, isClubAdmin, isPlatformAdmin }) {
     // Base navigation items
     let navItems = [
         { name: 'Dashboard', href: '/dashboard', icon: Home },
-        { name: isPlatformAdmin ? 'Clubs' : 'My Clubs', href: '/clubs', icon: Users },
+        { name: 'Clubs', href: '/clubs', icon: Users },
         { name: 'Events', href: '/events', icon: CalendarDays },
     ]
 
@@ -152,7 +152,7 @@ export function MobileSidebar({ user, isClubAdmin, isPlatformAdmin }) {
     // Base navigation items
     let navItems = [
         { name: 'Dashboard', href: '/dashboard', icon: Home },
-        { name: isPlatformAdmin ? 'Clubs' : 'My Clubs', href: '/clubs', icon: Users },
+        { name: 'Clubs', href: '/clubs', icon: Users },
         { name: 'Events', href: '/events', icon: CalendarDays },
     ]
 

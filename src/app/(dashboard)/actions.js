@@ -94,6 +94,10 @@ export async function inviteMember(clubId, email) {
 
   if (!targetUser) throw new Error('User not found')
 
+  // Platform admins cannot be club members
+  const isTargetPlatformAdmin = await isPlatformAdmin(targetUser.id)
+  if (isTargetPlatformAdmin) throw new Error('Platform admins cannot be added as club members')
+
   // Check existing membership
   const { data: existing } = await supabase
     .from('club_members')

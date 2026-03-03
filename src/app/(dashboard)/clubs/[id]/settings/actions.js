@@ -4,14 +4,14 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import {
   canManageMembers,
-  checkAdminRoleCap,
+  isPlatformAdmin,
   checkClubCapacity
 } from '@/lib/rbac'
 
 /**
  * Add member to club
  */
-export async function addMember(clubId, userEmail, role = 'member') {
+export async function addMember(clubId, userEmail) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -31,45 +31,33 @@ export async function addMember(clubId, userEmail, role = 'member') {
     throw new Error(`Club capacity reached (${capacityCheck.current}/${capacityCheck.limit} members)`)
   }
 
-  // Find user by email (first check profiles, then auth.users)
-  let targetUserId = null
-  
-  // Try to find in profiles first
+  // Find user by email
   const { data: profile } = await supabase
     .from('profiles')
     .select('id')
     .eq('email', userEmail)
     .single()
 
-  if (profile) {
-    targetUserId = profile.id
-  } else {
-    // If not in profiles, the user might not have signed up yet
+  if (!profile) {
     throw new Error('User not found. They must sign up first.')
   }
 
-  // If adding as admin, check admin role cap
-  if (role === 'admin') {
-    const adminCheck = await checkAdminRoleCap(targetUserId)
-    if (!adminCheck.allowed) {
-      throw new Error(`User has reached admin limit (${adminCheck.current}/${adminCheck.limit} clubs)`)
-    }
+  // Platform admins cannot be club members
+  const isTargetPlatformAdmin = await isPlatformAdmin(profile.id)
+  if (isTargetPlatformAdmin) {
+    throw new Error('Platform admins cannot be added as club members.')
   }
 
-  // Add member (triggers will validate)
+  // Add member (always as 'member' — admin is set only at club creation)
   const { error } = await supabase
     .from('club_members')
     .insert({
       club_id: clubId,
-      user_id: targetUserId,
-      role
+      user_id: profile.id,
+      role: 'member'
     })
 
   if (error) {
-    // Handle database trigger errors
-    if (error.message.includes('admin roles')) {
-      throw new Error('User has reached the maximum limit of 3 club admin roles')
-    }
     if (error.message.includes('capacity reached')) {
       throw new Error('Club capacity reached. Cannot add more members')
     }
@@ -112,52 +100,3 @@ export async function removeMember(clubId, memberId) {
   return { success: true }
 }
 
-/**
- * Promote member to admin (or demote admin to member)
- */
-export async function updateMemberRole(clubId, memberId, newRole) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Not authenticated')
-  }
-
-  const canManage = await canManageMembers(user.id, clubId)
-  if (!canManage) {
-    throw new Error('Not authorized to manage members')
-  }
-
-  // If promoting to admin, check admin role cap
-  if (newRole === 'admin') {
-    const { data: member } = await supabase
-      .from('club_members')
-      .select('user_id')
-      .eq('id', memberId)
-      .single()
-
-    if (member) {
-      const adminCheck = await checkAdminRoleCap(member.user_id)
-      if (!adminCheck.allowed) {
-        throw new Error(`User has reached admin limit (${adminCheck.current}/${adminCheck.limit} clubs)`)
-      }
-    }
-  }
-
-  const { error } = await supabase
-    .from('club_members')
-    .update({ role: newRole })
-    .eq('id', memberId)
-    .eq('club_id', clubId)
-
-  if (error) {
-    if (error.message.includes('admin roles')) {
-      throw new Error('User has reached the maximum limit of 3 club admin roles')
-    }
-    throw new Error(error.message)
-  }
-
-  revalidatePath(`/clubs/${clubId}/settings`)
-  revalidatePath(`/clubs/${clubId}`)
-  return { success: true }
-}

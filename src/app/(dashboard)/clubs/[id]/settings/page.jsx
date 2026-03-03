@@ -5,15 +5,12 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Loader2, UserPlus, UserMinus, Shield } from "lucide-react"
+import { ArrowLeft, Loader2, UserMinus, Shield } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { updateMemberRole, removeMember } from './actions'
+import { removeMember } from './actions'
 
 export default function ClubSettingsPage({ params }) {
   const router = useRouter()
@@ -87,15 +84,7 @@ export default function ClubSettingsPage({ params }) {
     setLoading(false)
   }
 
-  async function handleRoleChange(memberId, newRole) {
-    try {
-      await updateMemberRole(clubId, memberId, newRole)
-      toast.success('Member role updated!')
-      fetchClubData()
-    } catch (error) {
-      toast.error(error.message || 'Failed to update role')
-    }
-  }
+
 
   async function handleRemoveMember(memberId) {
     if (!confirm('Are you sure you want to remove this member?')) {
@@ -168,25 +157,10 @@ export default function ClubSettingsPage({ params }) {
                   </p>
                 </div>
 
-                <Select
-                  value={member.role}
-                  onValueChange={(newRole) => handleRoleChange(member.id, newRole)}
-                >
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4" />
-                        Admin
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="moderator">Moderator</SelectItem>
-                    <SelectItem value="member">Member</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Badge variant={member.role === 'admin' ? 'default' : 'secondary'} className="capitalize">
+                  {member.role === 'admin' && <Shield className="h-3 w-3 mr-1" />}
+                  {member.role}
+                </Badge>
 
                 {member.role !== 'admin' && (
                   <Button

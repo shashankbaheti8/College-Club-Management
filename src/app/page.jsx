@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { CalendarDays, Users, Shield, Zap, Layout, Check, Trophy, Rocket, ArrowRight } from "lucide-react"
+import { ThemeToggle } from "@/components/ThemeToggle"
 
 export default async function LandingPage() {
   // Fetch some featured clubs for display
@@ -29,7 +30,8 @@ export default async function LandingPage() {
             Hierarchy
           </Link>
         </nav>
-        <div className="ml-auto md:ml-8 flex gap-4">
+        <div className="ml-auto md:ml-8 flex items-center gap-4">
+            <ThemeToggle />
              <Link href="/login">
                 <Button variant="ghost" size="sm">Log in</Button>
             </Link>
