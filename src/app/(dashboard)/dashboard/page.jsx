@@ -74,7 +74,7 @@ export default async function DashboardPage() {
   const clubIds = myMemberships.map(m => m.clubs.id)
   
   // Common stats for Member/ClubAdmin
-  const [membersResult, eventsResult, upcomingResult] = await Promise.all([
+  const [membersResult, eventsResult, upcomingResult, coordinatedResult] = await Promise.all([
     // Fetch unique members across all user's clubs
     supabase.from('club_members').select('user_id').in('club_id', clubIds),
     
@@ -88,8 +88,21 @@ export default async function DashboardPage() {
       .eq('status', 'upcoming')
       .gte('date', new Date().toISOString())
       .order('date', { ascending: true })
-      .limit(5)
+      .limit(5),
+      
+    // Coordinated events for this specific user
+    supabase.from('event_coordinators')
+      .select(`
+        events (*, clubs (name))
+      `)
+      .eq('user_id', user.id)
   ])
+
+  // Process coordinated events to flatten the structure
+  const coordinatedEvents = (coordinatedResult.data || [])
+    .map(c => c.events)
+    .filter(e => e) // remove nulls
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
 
   // Deduplicate members across clubs
   const uniqueMembers = new Set((membersResult.data || []).map(m => m.user_id))
@@ -97,7 +110,9 @@ export default async function DashboardPage() {
   const stats = {
     totalMembers: uniqueMembers.size,
     activeEventCount: eventsResult.count || 0,
-    upcomingEvents: upcomingResult.data || []
+    upcomingEvents: upcomingResult.data || [],
+    coordinatedEvents: coordinatedEvents,
+    coordinatedEventIds: new Set(coordinatedEvents.map(e => e.id))
   }
 
   if (isClubAdmin) {

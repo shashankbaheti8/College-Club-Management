@@ -89,6 +89,14 @@ export default async function ClubDetailPage({ params }) {
       .limit(5)
   ])
 
+  const [
+    { data: membership },
+    { data: clubAdmins },
+    { data: members },
+    eventsResult,
+    announcementsResult
+  ] = results
+
   // Filter events based on visibility and user role
   const isPlatform = await isPlatformAdmin(user.id)
   const isMember = !!membership

@@ -8,8 +8,7 @@ export const CLUB_CATEGORIES = [
   'Academic',
   'Social',
   'Professional',
-  'Community Service',
-  'Other'
+  'Community Service'
 ]
 
 export const MEMBER_ROLES = [

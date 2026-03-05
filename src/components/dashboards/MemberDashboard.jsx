@@ -90,6 +90,11 @@ export function MemberDashboard({ memberships, stats }) {
                               {event.visibility}
                             </Badge>
                           )}
+                          {stats.coordinatedEventIds?.has(event.id) && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500 text-amber-600 bg-amber-500/10">
+                              Coordinator
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground">{event.clubs?.name}</p>
                       </div>
@@ -102,6 +107,45 @@ export function MemberDashboard({ memberships, stats }) {
             )}
           </CardContent>
         </Card>
+
+        {stats.coordinatedEvents && stats.coordinatedEvents.length > 0 && (
+            <Card className="col-span-1">
+              <CardHeader className="bg-primary/5 rounded-t-xl border-b border-primary/10">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5 text-primary" />
+                  <CardTitle>Events You Coordinate</CardTitle>
+                </div>
+                <CardDescription>Events where you are an assigned coordinator</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  {stats.coordinatedEvents.map((event) => (
+                    <Link key={`coord-${event.id}`} href={`/events/${event.id}`}>
+                      <div className="flex items-start gap-4 p-4 border border-primary/20 rounded-lg hover:bg-primary/5 transition-colors cursor-pointer relative overflow-hidden">
+                        <div className="absolute top-0 right-0 py-1 px-3 bg-primary text-primary-foreground text-[10px] font-bold rounded-bl-lg">
+                            COORDINATOR
+                        </div>
+                        <div className="bg-background border shadow-sm p-3 rounded-lg text-center min-w-[3.5rem] mt-2">
+                          <div className="text-xs font-bold uppercase text-muted-foreground">
+                            {new Date(event.date).toLocaleDateString('en-US', { month: 'short' })}
+                          </div>
+                          <div className="text-xl font-bold text-primary">
+                            {new Date(event.date).getDate()}
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0 mt-2">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold truncate pr-16">{event.title}</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{event.clubs?.name}</p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+        )}
       </div>
     </div>
   )

@@ -35,14 +35,14 @@ export default function InviteMemberModal({ clubId }) {
             <DialogTrigger asChild>
                 <Button size="sm">
                     <UserPlus className="mr-2 h-4 w-4" />
-                    Invite Members
+                    Add Member
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Invite Member</DialogTitle>
+                    <DialogTitle>Add Member</DialogTitle>
                     <DialogDescription>
-                        Add a new member to your club by their email address.
+                        Directly add a user to this club by their email address. They must already be registered on the platform.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleInvite}>
@@ -52,7 +52,7 @@ export default function InviteMemberModal({ clubId }) {
                             <Input
                                 id="email"
                                 type="email"
-                                placeholder="student@university.edu"
+                                placeholder="example@domain.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
