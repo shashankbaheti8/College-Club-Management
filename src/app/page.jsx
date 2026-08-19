@@ -6,11 +6,8 @@ import { CalendarDays, Users, Shield, Zap, Layout, Check, Trophy, Rocket, ArrowR
 import { ThemeToggle } from "@/components/ThemeToggle"
 
 export default async function LandingPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const isLoggedIn = !!user
-
   // Fetch some featured clubs for display
+  const supabase = await createClient()
   const { data: featuredClubs } = await supabase
     .from('clubs')
     .select('*')
@@ -35,20 +32,12 @@ export default async function LandingPage() {
         </nav>
         <div className="ml-auto md:ml-8 flex items-center gap-4">
             <ThemeToggle />
-            {isLoggedIn ? (
-              <Link href="/dashboard">
-                <Button size="sm">Dashboard</Button>
-              </Link>
-            ) : (
-              <>
-                <Link href="/login">
-                  <Button variant="ghost" size="sm">Log in</Button>
-                </Link>
-                <Link href="/signup">
-                  <Button size="sm">Get Started</Button>
-                </Link>
-              </>
-            )}
+             <Link href="/login">
+                <Button variant="ghost" size="sm">Log in</Button>
+            </Link>
+             <Link href="/signup">
+                <Button size="sm">Get Started</Button>
+            </Link>
         </div>
       </header>
 
@@ -206,7 +195,7 @@ export default async function LandingPage() {
                             <p className="text-muted-foreground">Join the conversation.</p>
                         </div>
                         <Button variant="outline" asChild>
-                            <Link href={isLoggedIn ? "/clubs" : "/login"}>View All</Link>
+                            <Link href="/login">View All</Link>
                         </Button>
                     </div>
                     

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, Suspense } from 'react'
-import { signup } from '../auth/actions'
+import { signup } from '../../auth/actions'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
