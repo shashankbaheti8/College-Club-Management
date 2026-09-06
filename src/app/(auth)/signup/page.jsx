@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, Suspense } from 'react'
+import React, { useEffect, Suspense, useActionState } from 'react'
 import { signup } from '../../auth/actions'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,8 +13,9 @@ import { Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 function SignupForm() {
+    const [state, formAction, isPending] = useActionState(signup, { error: null })
     const searchParams = useSearchParams()
-    const error = searchParams.get('error')
+    const errorParam = searchParams.get('error')
 
     const toastShownRef = React.useRef(false)
     const router = useRouter()
@@ -32,16 +33,25 @@ function SignupForm() {
     }, [router])
 
     useEffect(() => {
-        if (error && !toastShownRef.current) {
-            toast.error(error)
+        if (state?.error) {
+            toast.error(state.error)
+        }
+        if (state?.message) {
+            toast.success(state.message)
+        }
+    }, [state])
+
+    useEffect(() => {
+        if (errorParam && !toastShownRef.current) {
+            toast.error(errorParam)
             toastShownRef.current = true
             router.replace('/signup')
         }
         
-         if (!error) {
+         if (!errorParam) {
             toastShownRef.current = false
         }
-    }, [error, router])
+    }, [errorParam, router])
 
     return (
         <Card className="w-full max-w-sm mx-auto shadow-none border-0 bg-transparent">
@@ -54,7 +64,7 @@ function SignupForm() {
                 Enter your details below to create your account
               </p>
             </div>
-            <form action={signup} className='grid gap-6 signup-form'>
+            <form action={formAction} className='grid gap-6 signup-form'>
                 <div className="grid gap-2">
                     <Label htmlFor="full_name">Full Name</Label>
                     <Input
@@ -87,7 +97,10 @@ function SignupForm() {
                         required
                     />
                 </div>
-                <Button className="w-full">Sign Up with Email</Button>
+                <Button className="w-full" disabled={isPending}>
+                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Sign Up with Email
+                </Button>
             </form>
            
             <p className="px-8 text-center text-sm text-muted-foreground">

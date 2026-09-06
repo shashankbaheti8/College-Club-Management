@@ -8,7 +8,6 @@ import { createClient } from '@/lib/supabase/server'
 export async function login(formData) {
   const supabase = await createClient()
 
-  // Type-casting here for convenience
   const email = String(formData.get('email')).trim()
   const password = String(formData.get('password'))
 
@@ -18,27 +17,26 @@ export async function login(formData) {
   })
 
   if (error) {
-    redirect('/login?error=' + encodeURIComponent(error.message))
+    return { error: error.message }
   }
 
   revalidatePath('/', 'layout')
   redirect('/dashboard')
 }
 
-export async function signup(formData) {
+export async function signup(prevState, formData) {
   const supabase = await createClient()
 
   const email = String(formData.get('email')).trim()
   const password = String(formData.get('password'))
   const fullName = String(formData.get('full_name')).trim()
 
-  // Server-side validation to prevent cryptic database errors
   if (!fullName || fullName.length < 3) {
-      redirect('/signup?error=' + encodeURIComponent('Full name must be at least 3 characters long.'))
+      return { error: 'Full name must be at least 3 characters long.' }
   }
   
   if (!password || password.length < 6) {
-      redirect('/signup?error=' + encodeURIComponent('Password must be at least 6 characters long.'))
+      return { error: 'Password must be at least 6 characters long.' }
   }
 
   const { data, error } = await supabase.auth.signUp({
@@ -52,7 +50,7 @@ export async function signup(formData) {
   })
 
   if (error) {
-    redirect('/signup?error=' + encodeURIComponent(error.message))
+    return { error: error.message }
   }
 
   revalidatePath('/', 'layout')
@@ -61,7 +59,7 @@ export async function signup(formData) {
     redirect('/dashboard')
   }
 
-  redirect('/login?message=Check email to continue sign in process')
+  return { message: 'Check email to continue sign in process' }
 }
 
 export async function logout() {
@@ -126,7 +124,6 @@ export async function sendPasswordResetEmail(formData) {
     return { error: 'No account found with this email address.' }
   }
 
-  // User exists — send the reset email
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback?next=/reset-password`,
   })

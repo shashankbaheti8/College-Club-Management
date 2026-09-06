@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, Suspense } from 'react'
+import React, { useEffect, Suspense, useActionState } from 'react'
 import { login } from '../../auth/actions'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,9 +13,9 @@ import { Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 function LoginForm() {
+    const [state, formAction, isPending] = useActionState(login, { error: null })
     const searchParams = useSearchParams()
-    const error = searchParams.get('error')
-    const message = searchParams.get('message')
+    const errorParam = searchParams.get('error')
   
     const toastShownRef = React.useRef(false)
     const router = useRouter()
@@ -33,26 +33,24 @@ function LoginForm() {
     }, [router])
 
     useEffect(() => {
-        // Reset ref when params change, or handle dependency correctly
-        // Actually, cleaner way:
-        if (error && !toastShownRef.current) {
-            toast.error(error)
+        // Handle state error from form submission
+        if (state?.error) {
+            toast.error(state.error)
+        }
+    }, [state?.error])
+
+    useEffect(() => {
+        if (errorParam && !toastShownRef.current) {
+            toast.error(errorParam)
             toastShownRef.current = true
             router.replace('/login') // Clear url
         }
-        if (message && !toastShownRef.current) {
-            toast.success(message)
-            toastShownRef.current = true
-             router.replace('/login') // Clear url
-        }
         
-        // Reset ref if no params (e.g. after clear) so it works again if new params come?
-        // No, because this eff runs on param change.
-        if (!error && !message) {
+        if (!errorParam) {
             toastShownRef.current = false
         }
 
-    }, [error, message, router])
+    }, [errorParam, router])
 
     return (
         <Card className="w-full max-w-sm mx-auto shadow-none border-0 bg-transparent">
@@ -65,7 +63,7 @@ function LoginForm() {
                 Enter your email to sign in to your account
               </p>
             </div>
-            <form action={login} className='grid gap-6 login-form'>
+            <form action={formAction} className='grid gap-6 login-form'>
                 <div className="grid gap-2">
                     <Label htmlFor="email">Email</Label>
                     <Input
@@ -96,7 +94,10 @@ function LoginForm() {
                         required
                     />
                 </div>
-                <Button className="w-full">Sign In with Email</Button>
+                <Button className="w-full" disabled={isPending}>
+                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Sign In with Email
+                </Button>
             </form>
             
             <p className="px-8 text-center text-sm text-muted-foreground">

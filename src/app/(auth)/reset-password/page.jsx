@@ -60,7 +60,7 @@ function ResetPasswordForm() {
                 // Sign out the user so they can log in with their new password
                 await supabase.auth.signOut()
                 setTimeout(() => {
-                    router.push('/login?message=' + encodeURIComponent('Password reset successful. Please sign in with your new password.'))
+                    router.push('/login')
                 }, 2000)
             }
         } catch (err) {
