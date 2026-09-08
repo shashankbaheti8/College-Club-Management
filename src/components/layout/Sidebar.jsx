@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { logout } from '@/app/auth/actions'
+import { logout } from '@/app/(auth)/actions'
 
 export function Sidebar({ className, user, isClubAdmin, isPlatformAdmin }) {
     const pathname = usePathname()
@@ -54,18 +54,8 @@ export function Sidebar({ className, user, isClubAdmin, isPlatformAdmin }) {
         { name: 'Dashboard', href: '/dashboard', icon: Home },
         { name: 'Clubs', href: '/clubs', icon: Users },
         { name: 'Events', href: '/events', icon: CalendarDays },
+        { name: 'Announcements', href: '/announcements', icon: Megaphone },
     ]
-
-    // Club Admin Links
-    if (isClubAdmin) {
-        // Add specific tools for club admins if needed, currently Dashboard covers it
-        // could add { name: 'Manage Events', href: '/events/manage', ... }
-    }
-
-    // Platform Admin Links
-    if (isPlatformAdmin) {
-        navItems.push({ name: 'Announcements', href: '/announcements', icon: Megaphone })
-    }
 
     return (
         <div className="flex h-full flex-col gap-2">

@@ -42,52 +42,53 @@ export default async function AnnouncementsPage() {
         </div>
 
         <div className="grid gap-4">
-            {announcements?.map((announcement) => (
-                 <Card key={announcement.id}>
-                    <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                            <div className="space-y-1">
-                                <CardTitle className="text-lg font-semibold">{announcement.title}</CardTitle>
-                                <span className="text-xs text-muted-foreground block">
-                                    {new Date(announcement.created_at).toLocaleDateString()}
-                                </span>
-                            </div>
-                            {isPlatform && (
-                                <ConfirmButton
-                                    title="Delete Announcement"
-                                    description="Are you sure you want to delete this global announcement? This cannot be undone."
-                                    actionLabel="Delete"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                    onConfirm={async () => {
-                                        'use server'
-                                        await deleteAnnouncement(announcement.id)
-                                    }}
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </ConfirmButton>
-                            )}
-                        </div>
-                        <CardDescription>
-                            Posted by {announcement.profiles?.full_name}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                            {announcement.content}
-                        </p>
-                    </CardContent>
-                 </Card>
-            ))}
-            
-            {(!announcements || announcements.length === 0) && (
+            {!announcements || announcements.length === 0 ? (
                 <div className="py-12 text-center border rounded-lg bg-muted/20 border-dashed">
                     <Megaphone className="mx-auto h-12 w-12 text-muted-foreground/50" />
                     <h3 className="mt-4 text-sm font-semibold text-foreground">No announcements</h3>
                     <p className="mt-1 text-sm text-muted-foreground">Check back later for system updates.</p>
                 </div>
+            ) : (
+                announcements.map((announcement) => (
+                     <Card key={announcement.id}>
+                        <CardHeader className="pb-3">
+                            <div className="flex items-start justify-between">
+                                <div className="space-y-1">
+                                    <CardTitle className="text-lg font-semibold">{announcement.title}</CardTitle>
+                                    <span className="text-xs text-muted-foreground block">
+                                        {new Date(announcement.created_at).toLocaleDateString()}
+                                    </span>
+                                </div>
+                                {isPlatform && (
+                                    <ConfirmButton
+                                        title="Delete Announcement"
+                                        description="Are you sure you want to delete this global announcement? This cannot be undone."
+                                        actionLabel="Delete"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onConfirm={async () => {
+                                            'use server'
+                                            await deleteAnnouncement(announcement.id)
+                                        }}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </ConfirmButton>
+                                )}
+                            </div>
+                            <CardDescription>
+                                Posted by {announcement.profiles?.full_name}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                                {announcement.content}
+                            </p>
+                        </CardContent>
+                     </Card>
+                ))
             )}
+    
         </div>
     </div>
   )

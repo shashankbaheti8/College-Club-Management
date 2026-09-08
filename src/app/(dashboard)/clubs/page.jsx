@@ -99,7 +99,6 @@ export default async function ClubsPage() {
                                             View Details
                                         </Button>
                                     </Link>
-                                    {/* Join button removed as per requirements */}
                                 </div>
                             </CardContent>
                         </Card>

@@ -35,9 +35,7 @@ export default async function ClubDetailPage({ params }) {
     notFound()
   }
 
-    // Fetch all related data in parallel
     const results = await Promise.all([
-    // Check membership
     supabase
       .from('club_members')
       .select('role')
@@ -252,9 +250,9 @@ export default async function ClubDetailPage({ params }) {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          {canViewMembers && <TabsTrigger value="members">Members</TabsTrigger>}
           <TabsTrigger value="events">Events</TabsTrigger>
           {canViewAnnouncements && <TabsTrigger value="announcements">Announcements</TabsTrigger>}
+          {canViewMembers && <TabsTrigger value="members">Members</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">

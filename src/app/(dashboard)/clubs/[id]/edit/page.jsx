@@ -144,7 +144,7 @@ export default function EditClubPage({ params }) {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name">Club Name *</Label>
+              <Label htmlFor="name">Club Name*</Label>
               <Input
                 id="name"
                 placeholder="e.g., Photography Club, Coding Society"
@@ -156,7 +156,7 @@ export default function EditClubPage({ params }) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
+              <Label htmlFor="category">Category*</Label>
               <Select
                 value={formData.category}
                 onValueChange={(value) => setFormData({ ...formData, category: value })}
@@ -176,7 +176,7 @@ export default function EditClubPage({ params }) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description *</Label>
+              <Label htmlFor="description">Description*</Label>
               <Textarea
                 id="description"
                 placeholder="Tell people what your club is about..."
@@ -188,15 +188,14 @@ export default function EditClubPage({ params }) {
               />
             </div>
 
-            <div className="flex gap-4">
-              <Link href={`/clubs/${clubId}`} className="flex-1">
-                <Button type="button" variant="outline" className="w-full">
+            <div className="flex justify-end gap-6">
+              <Link href={`/clubs/${clubId}`}>
+                <Button type="button" variant="outline">
                   Cancel
                 </Button>
               </Link>
-              <Button type="submit" className="flex-1" disabled={loading}>
+              <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <Building2 className="mr-2 h-4 w-4" />
                 Update Club
               </Button>
             </div>

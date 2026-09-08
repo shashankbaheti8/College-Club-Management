@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { updateProfile } from '@/app/auth/actions'
+import { updateProfile } from '@/app/(auth)/actions'
 
 export default function ProfileForm({ profile }) {
   const router = useRouter()
