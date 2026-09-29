@@ -36,8 +36,8 @@ UniClub is a comprehensive web application designed to streamline the management
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/shashankbaheti8/College-Event-Management.git
-    cd College-Event-Management
+    git clone https://github.com/shashankbaheti8/College-Club-Management.git
+    cd College-Club-Management
     ```
 
 2.  **Install dependencies:**
